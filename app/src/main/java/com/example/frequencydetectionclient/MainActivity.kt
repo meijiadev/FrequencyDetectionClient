@@ -28,8 +28,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         const val SP_AUTO_START_KEY = "sp_auto_start_key"
 
         const val SP_FILE_FREQUENCY_KEY = "sp_file_frequency_key"
-        const val SP_HACK_RF_FREQUENCY_KEY = "sp_hack_rf_frequency_key"
-        const val SP_RTL_FREQUENCY_KEY = "sp_rtl_frequency_key"
+        const val SP_FREQUENCY_KEY = "sp_frequency_key"
 
         const val SP_FILE_SAMPLE_RATE_KEY = "sp_file_sample_rate_key"
         const val SP_HACK_SAMPLE_RATE_KEY = "sp_hack_sample_rate_key"
@@ -104,7 +103,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
 
             SOURCE_HACK_RF_VALUE -> {
                 frequency =
-                    SpManager.getLong(SP_HACK_RF_FREQUENCY_KEY, 30 * 1000 * 1000L)    // 20Mhz
+                    SpManager.getLong(SP_FREQUENCY_KEY, 30 * 1000 * 1000L)    // 20Mhz
                 sampleRate = SpManager.getInt(SP_HACK_SAMPLE_RATE_KEY, 2 * 1000 * 1000)   // 2Mhz
                 source = HackrfSource()
                 source?.let {
@@ -308,7 +307,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
             }
 
             // 调整源的采样率
-            source?.sampleRate(Demodulator.INPUT_RATE)
+            source?.sampleRate = Demodulator.INPUT_RATE
 
             // 验证源是否支持采样率
             if (source?.sampleRate != Demodulator.INPUT_RATE) {
@@ -344,13 +343,24 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
 
     override fun onStart() {
         super.onStart()
+        // 检查用户是否更改了首选项
+        checkForChangedPreferences()
+        if (running) {
+            startAnalyzer()
+        }
 
     }
 
 
     override fun onStop() {
         super.onStop()
-
+        val runningSaved = running
+        stopAnalyzer()
+        running = runningSaved
+        if (source != null) {
+            SpManager.putLong(SP_FREQUENCY_KEY, source!!.frequency)
+            SpManager.putInt(SP_HACK_SAMPLE_RATE_KEY, source!!.sampleRate)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -382,6 +392,36 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
     private fun checkForChangedPreferences() {
         // source type (检查数据源的种类)
         val sourceType = SpManager.getInt(SP_SOURCE_TYPE_KEY, 1)
+        if (source != null) {
+            when (sourceType) {
+                SOURCE_FILE_VALUE -> {
+
+                }
+                SOURCE_HACK_RF_VALUE -> {
+                    if (source !is HackrfSource) {
+                        source?.close()
+                        createSource()
+                    } else {
+                        val amp = SpManager.getBoolean(SP_HACK_RF_AMPLIFIER_KEY, false)
+                        val antennaPower = SpManager.getBoolean(SP_HACK_RF_ANTENNA_POWER_KEY, false)
+                        val frequencyOffset = SpManager.getInt(SP_HACK_RF_FREQUENCY_OFFSET_KEY, 0)
+                        (source as HackrfSource).let {
+                            if (it.isAmplifierOn != amp) it.setAmplifier(amp)
+                            if (it.isAntennaPowerOn != antennaPower) it.setAntennaPower(antennaPower)
+                            if (it.frequencyOffset != frequencyOffset)
+                                it.frequencyOffset = frequencyOffset
+                        }
+                    }
+                }
+                SOURCE_RTL_SDR_VALUE -> {
+
+                }
+            }
+        }
+
+        if (analyzerSurface != null) {
+            // ?????
+        }
 
 
     }
