@@ -17,11 +17,10 @@ import android.view.ScaleGestureDetector
 import android.view.ScaleGestureDetector.OnScaleGestureListener
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import androidx.annotation.RequiresApi
-import com.example.frequencydetectionclient.IQSourceInterface
 import com.example.frequencydetectionclient.R
-import com.example.frequencydetectionclient.RFControlInterface
+import com.example.frequencydetectionclient.iq.RFControlInterface
 import com.example.frequencydetectionclient.hackrf.HackrfSource
+import com.example.frequencydetectionclient.iq.IQSourceInterface
 import com.example.frequencydetectionclient.rtlsdr.RtlsdrSource
 import com.orhanobut.logger.Logger
 
@@ -29,7 +28,6 @@ import com.orhanobut.logger.Logger
  * Module:      AnalyzerSurface.java
  * Description: 这是一个扩展SurfaceView的自定义视图。它将显示频谱和瀑布图表
  */
-@RequiresApi(Build.VERSION_CODES.M)
 class AnalyzerSurface(context: Context?, rfControlInterface: RFControlInterface?) :
     SurfaceView(context), SurfaceHolder.Callback, OnScaleGestureListener,
     GestureDetector.OnGestureListener {
@@ -120,7 +118,7 @@ class AnalyzerSurface(context: Context?, rfControlInterface: RFControlInterface?
     private var enableCollect = false          // 开启采集周围环境
 
     // private var matrix: Matrix? = null    // view 的矩阵参数，用于旋转圆形
-    private lateinit var matrix: Matrix
+    private var matrix: Matrix
 
     /**
      * @param showDebugInformation true 将在屏幕上启用调试输出

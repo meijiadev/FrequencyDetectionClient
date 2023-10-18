@@ -1,6 +1,6 @@
 package com.example.frequencydetectionclient.thread;
 
-import com.example.frequencydetectionclient.IQSourceInterface;
+import com.example.frequencydetectionclient.iq.IQSourceInterface;
 import com.example.frequencydetectionclient.bean.SamplePacket;
 import com.orhanobut.logger.Logger;
 
@@ -28,11 +28,8 @@ public class Scheduler extends Thread {
     private BufferedOutputStream bufferedOutputStream = null;    // Used for recording
     private boolean stopRecording = false;
 
-    // Define the size of the fft output and input Queues. By setting this value to 2 we basically end up
-    // with double buffering. Maybe the two queues are overkill, but it works pretty well like this and
-    // it handles the synchronization between the scheduler thread and the processing loop for us.
-    // Note that setting the size to 1 will not work well and any number higher than 2 will cause
-    // higher delays when switching frequencies.
+    // 定义fft输出和输入队列的大小。通过将该值设置为2，我们基本上结束具有双重缓冲。也许这两个队列太夸张了，但它像这样工作得很好它为我们处理调度程序线程和处理循环之间的同步。
+    // 请注意，将大小设置为1效果不佳，任何大于2的数字都会导致切换频率时延迟更高。
     private static final int FFT_QUEUE_SIZE = 2;
     private static final int DEMOD_QUEUE_SIZE = 20;
 
@@ -147,7 +144,7 @@ public class Scheduler extends Thread {
         SamplePacket demodBuffer = null;        // 引用我们从demod输入队列中获得的要填充的缓冲区
         SamplePacket tmpFlushBuffer = null;    // 如果需要，只需要一个tmp缓冲区来刷新队列
         // 从源获取一个新数据包:
-       // byte[] packet = source.getPacket(1000);
+        // byte[] packet = source.getPacket(1000);
         while (!stopRequested) {
             // 从源获取一个新数据包:
             byte[] packet = source.getPacket(1000);
@@ -177,12 +174,12 @@ public class Scheduler extends Thread {
             }
             ///// 解调制 //////////////////////////////
             if (demodulationActivated && squelchSatisfied) {
-                // Get a buffer from the demodulator inputQueue
+                // 从解调器inputQueue获取缓冲区
                 demodBuffer = demodInputQueue.poll();
                 if (demodBuffer != null) {
-                    demodBuffer.setSize(0);    // mark buffer as empty
+                    demodBuffer.setSize(0);    // 将缓冲区标记为空
                     // 将数据包填充到缓冲区中，并通过mixFrequency移动其频谱:
-                    source. mixPacketIntoSamplePacket(packet, demodBuffer, channelFrequency);
+                    source.mixPacketIntoSamplePacket(packet, demodBuffer, channelFrequency);
                     demodOutputQueue.offer(demodBuffer);    // 提供包
                 } else {
                     Logger.d("run: Flush the demod queue because demodulator is too slow!");
@@ -223,6 +220,6 @@ public class Scheduler extends Thread {
             }
             bufferedOutputStream = null;
         }
-        Logger.i( "Scheduler stopped. (Thread: " + this.getName() + ")");
+        Logger.i("Scheduler stopped. (Thread: " + this.getName() + ")");
     }
 }

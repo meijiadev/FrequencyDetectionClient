@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -13,8 +13,45 @@
         layout="@layout/title_view" />
 
 
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/viewTitle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+
+        >
+        <TextView
+            android:id="@+id/tvCollect"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            app:drawableTopCompat="@mipmap/collect_signal"
+            android:text="信号采集"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center_horizontal"
+            android:padding="5dp"
+            />
+
+        <TextView
+            android:id="@+id/tvDetection"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            app:drawableTopCompat="@mipmap/signal_detection"
+            android:text="信号侦测"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center_horizontal"
+            android:padding="5dp"
+            android:layout_marginStart="200dp"
+            />
+    </LinearLayout>
 
 
 
 
-</RelativeLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

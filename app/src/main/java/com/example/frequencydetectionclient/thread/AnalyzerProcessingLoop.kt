@@ -2,8 +2,8 @@ package com.example.frequencydetectionclient.thread
 
 import android.os.Build
 import com.example.frequencydetectionclient.utils.FFT
-import com.example.frequencydetectionclient.IQSourceInterface
 import com.example.frequencydetectionclient.bean.SamplePacket
+import com.example.frequencydetectionclient.iq.IQSourceInterface
 import com.example.frequencydetectionclient.view.AnalyzerSurface
 import com.orhanobut.logger.Logger
 import java.util.concurrent.ArrayBlockingQueue
@@ -20,7 +20,7 @@ import kotlin.math.sqrt
  * Description: 该线程将从传入队列（由调度器提供）中获取样本，进行信号处理（fft），然后将结果转发到固定费率。它稳定了fft的生成速率，从而给出瀑布显示线性时间尺度。
  */
 class AnalyzerProcessingLoop(
-    private val view: AnalyzerSurface,
+  //  private val view: AnalyzerSurface,
     fftSize: Int,
     inputQueue: ArrayBlockingQueue<SamplePacket>?,
     returnQueue: ArrayBlockingQueue<SamplePacket>?,
@@ -38,8 +38,7 @@ class AnalyzerProcessingLoop(
     private var inputQueue: ArrayBlockingQueue<SamplePacket>? = null // 传递示例数据包的队列
     private var returnQueue: ArrayBlockingQueue<SamplePacket>? = null // 队列以返回未使用的缓冲区
 
-    var mIQSourceInterface: IQSourceInterface? =
-        null                // 对RFControlInterface处理程序的引用
+    var mIQSourceInterface: IQSourceInterface? = null                // 对RFControlInterface处理程序的引用
 
     /**
      * 扫描频段
@@ -56,7 +55,7 @@ class AnalyzerProcessingLoop(
     }
 
     /**
-     * Will set the stopRequested flag so that the processing loop will terminate
+     * 将设置stopRequested标志，以便处理循环终止
      */
     fun stopLoop() {
         stopRequested = true
@@ -111,9 +110,6 @@ class AnalyzerProcessingLoop(
         var sleepTime: Long // time (in ms) to sleep before the next run to meet the frame rate
         var frequency: Long // center frequency of the incoming samples
         var sampleRate: Int // sample rate of the incoming samples
-//        var preFrequency: Long = 0  //上一次的频率
-//        var count: Int = 0
-//        var totalData: Float = 0f
         while (!stopRequested) {
             // store the current timestamp
             startTime = System.currentTimeMillis()
@@ -149,12 +145,12 @@ class AnalyzerProcessingLoop(
 
                 WORK_STATUS_DEFAULT -> {
                     // 把结果推到表面上去:
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        view.draw(mag!!, frequency, sampleRate, frameRate, load)
-                    }
+//                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+//                        view.draw(mag!!, frequency, sampleRate, frameRate, load)
+//                    }
                     // 计算该帧的剩余时间(根据帧速率)，并在该时间内休眠:
                     sleepTime = 1000 / frameRate - (System.currentTimeMillis() - startTime)
-                    Logger.i("sleepTime:$sleepTime");
+//                    Logger.i("sleepTime:$sleepTime");
 //                    try {
 //                        if (sleepTime > 0) {
 //                            // load = processing_time / frame_duration
@@ -188,8 +184,8 @@ class AnalyzerProcessingLoop(
     var preFrequency: Long = 0  //上一次的频率
     var count: Int = 0
     var totalData: Float = 0f
-    val startFre = 30 * 1000 * 1000L  //100 mhz
-    val endFre = 3000 * 1000 * 1000L  // 1000mhz
+    private val startFre = 40 * 1000 * 1000L  //100 mhz
+    private val endFre = 3000 * 1000 * 1000L  // 1000mhz
     val stepFre = 20 * 1000 * 1000L
     var startTime: Long = 0
     var endTime: Long = 0
@@ -213,14 +209,12 @@ class AnalyzerProcessingLoop(
             count = 0
             totalData = 0f
         }
-
-
         collectQueue?.set(frequency.toString(), avgData)
         Logger.i("--$avgData;$frequency;$rate；${collectQueue?.size}")
         if (frequency == startFre) {
             startTime = System.currentTimeMillis()
         }
-        var newFre = frequency + rate
+        val newFre = frequency + rate
         if (newFre <= endFre)
             mIQSourceInterface?.frequency = newFre
         else {
@@ -256,9 +250,9 @@ class AnalyzerProcessingLoop(
             // 计算 magnitude = log(  re^2 + im^2  )
             // 请注意，我们仍然需要将re和im除以FFT大小
             realPower = re[i] / fftSize
-            realPower = realPower * realPower
+            realPower *= realPower
             imagPower = im[i] / fftSize
-            imagPower = imagPower * imagPower
+            imagPower *= imagPower
             // Math.sqrt(realPower + imagPower) 开平方根
 
             mag!![targetIndex] =
@@ -266,25 +260,6 @@ class AnalyzerProcessingLoop(
         }
     }
 
-    class CollectThread : Thread() {
-        private var isScaning = false
-        fun startScan() {
-            start()
-            isScaning = true
-        }
-
-        fun stopScan() {
-            isScaning = false
-        }
-
-        override fun run() {
-            super.run()
-            while (isScaning) {
-
-            }
-
-        }
-    }
 
     companion object {
         private const val MAX_FRAMERATE = 30 // 自动帧速率控制的上限

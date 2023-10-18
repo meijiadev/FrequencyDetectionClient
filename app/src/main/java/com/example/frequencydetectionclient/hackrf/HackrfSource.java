@@ -3,8 +3,8 @@ package com.example.frequencydetectionclient.hackrf;
 import android.content.Context;
 import android.util.Log;
 
-import com.example.frequencydetectionclient.IQSourceInterface;
 import com.example.frequencydetectionclient.bean.SamplePacket;
+import com.example.frequencydetectionclient.iq.IQSourceInterface;
 import com.example.frequencydetectionclient.utils.Signed8BitIQConverter;
 import com.example.frequencydetectionclient.iq.IQConverter;
 import com.mantz_it.hackrf_android.Hackrf;
@@ -35,7 +35,7 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 	private boolean antennaPower = false;
 	private int frequencyOffset = 0;	// virtually offset the frequency according to an external up/down-converter
 	private IQConverter iqConverter;
-	private static final String LOGTAG = "HackRFSource";
+//	private static final String LOGTAG = "HackRFSource";
 	public static final long MIN_FREQUENCY = 1l;
 	public static final long MAX_FREQUENCY = 7250000000l;
 	public static final int MAX_SAMPLERATE = 20000000;
@@ -61,7 +61,7 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 		if(callback != null)
 			callback.onIQSourceError(this,msg);
 		else
-			Logger.e(LOGTAG,"reportError: Callback is null. (Error: " + msg + ")");
+			Logger.e("reportError: Callback is null. (Error: " + msg + ")");
 	}
 
 	@Override
@@ -135,10 +135,10 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 			}
 		}
 
-		// Flush the queue:
+		//刷新队列：
 		this.flushQueue();
 
-		// Store the new frequency
+		// 存储新频率
 		this.frequency = actualFrequency;
 		this.iqConverter.setFrequency(frequency);
 	}
@@ -210,9 +210,9 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 
 		// Flush the queue
 		this.flushQueue();
-		Logger.d("setSampleRate: setting sample rate to " + sampleRate);
 		this.sampleRate = sampleRate;
 		this.iqConverter.setSampleRate(sampleRate);
+		Logger.i("设置的采样率："+sampleRate/1000/1000 +"Mhz");
 	}
 
 	public int getBasebandFilterWidth() {
@@ -245,7 +245,7 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 
 	public void setBasebandFilterWidth(int basebandFilterWidth) {
 		this.basebandFilterWidth = hackrf.computeBasebandFilterBandwidth(basebandFilterWidth);
-		Log.d(LOGTAG,"setBasebandFilterWidth: Setting BB filter width to " + this.basebandFilterWidth);
+		Logger.i("setBasebandFilterWidth: Setting BB filter width to " + this.basebandFilterWidth);
 		if(hackrf != null) {
 			try {
 				hackrf.setBasebandFilterBandwidth(this.basebandFilterWidth);
@@ -408,7 +408,7 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 				Logger.e("startSampling: Error while set up hackrf: " + e.getMessage());
 			}
 		} else {
-			Logger.e(LOGTAG, "startSampling: Hackrf instance is null");
+			Logger.e( "startSampling: Hackrf instance is null");
 		}
 	}
 
@@ -418,10 +418,10 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 			try {
 				hackrf.stop();
 			} catch (HackrfUsbException e) {
-				Logger.e(LOGTAG, "stopSampling: Error while tear down hackrf: " + e.getMessage());
+				Logger.e( "stopSampling: Error while tear down hackrf: " + e.getMessage());
 			}
 		} else {
-			Logger.e(LOGTAG, "stopSampling: Hackrf instance is null");
+			Logger.e( "stopSampling: Hackrf instance is null");
 		}
 	}
 
@@ -435,18 +435,18 @@ public class HackrfSource implements IQSourceInterface, HackrfCallbackInterface 
 	}
 
 	/**
-	 * Will empty the queue
+	 * 将清空队列
 	 */
 	public void flushQueue() {
 		byte[] buffer;
 
 		if(hackrf == null || queue == null)
-			return; // nothing to flush...
+			return; //没有什么可清空的。。。
 
 		for (int i = 0; i < queue.size(); i++) {
 			buffer = queue.poll();
 			if(buffer == null)
-				return; // we are done; the queue is empty.
+				return; // 结束方法；队列为空。
 			hackrf.returnBufferToBufferPool(buffer);
 		}
 	}

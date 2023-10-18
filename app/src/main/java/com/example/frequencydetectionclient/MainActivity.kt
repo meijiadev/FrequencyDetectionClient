@@ -1,15 +1,18 @@
 package com.example.frequencydetectionclient
 
-import android.R
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.PersistableBundle
+import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.frequencydetectionclient.databinding.ActivityMainBinding
 import com.example.frequencydetectionclient.hackrf.HackrfSource
+import com.example.frequencydetectionclient.iq.IQSourceInterface
+import com.example.frequencydetectionclient.iq.RFControlInterface
 import com.example.frequencydetectionclient.manager.SpManager
 import com.example.frequencydetectionclient.thread.AnalyzerProcessingLoop
 import com.example.frequencydetectionclient.thread.Demodulator
@@ -21,7 +24,7 @@ import java.io.File
 
 class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlInterface {
     companion object {
-        const val SP_SOURCE_TYPE_KEY = "sp_source_type_key"
+        //const val SP_SOURCE_TYPE_KEY = "sp_source_type_key"
 
         const val SP_RTL_SDR_EXTERNAL_SERVER_KEY = "sp_rtl_sdr_external_server_key"
 
@@ -53,7 +56,6 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         const val STATE_SAVE_RUNNING = "save_state_running"
         const val STATE_SAVE_DEMODULATOR_MODE = "save_state_demodulator_mode"
 
-
     }
 
     private var source: IQSourceInterface? = null
@@ -68,9 +70,14 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
     // 解调器模式
     private var demodulationMode = Demodulator.DEMODULATION_OFF
 
+    private var workStatus: Int = AnalyzerProcessingLoop.WORK_STATUS_COLLECT
+
+    private lateinit var viewBinding: ActivityMainBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        viewBinding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(viewBinding.root)
 
         // 恢复/初始化运行状态和解调器模式
         if (savedInstanceState != null) {
@@ -81,8 +88,24 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         }
 
         volumeControlStream = AudioManager.STREAM_MUSIC
+
+        onClick()
+        Logger.i("启动频率侦测仪器")
     }
 
+    private fun onClick() {
+        viewBinding.tvCollect.setOnClickListener {
+            Logger.i("进入采集程序")
+            workStatus = AnalyzerProcessingLoop.WORK_STATUS_COLLECT
+            startAnalyzer()
+        }
+
+        viewBinding.tvDetection.setOnClickListener {
+            Logger.i("进入侦测页面")
+            workStatus = AnalyzerProcessingLoop.WORK_STATUS_SCAN
+        }
+
+    }
 
     /**
      * 根据用户设置创建IQSource 实例
@@ -90,47 +113,31 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
      */
     private fun createSource(): Boolean {
         // 频率
-        var frequency: Long
+        var frequency =
+            SpManager.getLong(SP_FREQUENCY_KEY, 30 * 1000 * 1000L)    // 30Mhz
         // 采样率
-        var sampleRate: Int
-        val sourceType = SpManager.getInt(SP_SOURCE_TYPE_KEY, SOURCE_HACK_RF_VALUE)
-        when (sourceType) {
-            SOURCE_FILE_VALUE -> {
-                frequency = SpManager.getLong(SP_FILE_FREQUENCY_KEY, 30 * 1000 * 1000L)    // 20Mhz
-                sampleRate = SpManager.getInt(SP_FILE_SAMPLE_RATE_KEY, 2 * 1000 * 1000)   // 2Mhz
-
-            }
-
-            SOURCE_HACK_RF_VALUE -> {
-                frequency =
-                    SpManager.getLong(SP_FREQUENCY_KEY, 30 * 1000 * 1000L)    // 20Mhz
-                sampleRate = SpManager.getInt(SP_HACK_SAMPLE_RATE_KEY, 2 * 1000 * 1000)   // 2Mhz
-                source = HackrfSource()
-                source?.let {
-                    source?.frequency = frequency
-                    source?.sampleRate = sampleRate
-                }
-                (source as HackrfSource).let {
-                    it.vgaRxGain =
-                        SpManager.getInt(
-                            SP_HACK_RF_VGA_RX_GAIN_KEY,
-                            HackrfSource.MAX_VGA_RX_GAIN / 2
-                        )
-                    it.lnaGain =
-                        SpManager.getInt(SP_HACK__RF_LNA_GAIN_KEY, HackrfSource.MAX_LNA_GAIN / 2)
-                    it.setAmplifier(SpManager.getBoolean(SP_HACK_RF_AMPLIFIER_KEY, false))
-                    it.setAntennaPower(SpManager.getBoolean(SP_HACK_RF_ANTENNA_POWER_KEY, false))
-                    it.frequencyOffset = SpManager.getInt(SP_HACK_RF_FREQUENCY_OFFSET_KEY, 0)
-                }
-
-            }
-
-            SOURCE_RTL_SDR_VALUE -> {
-
-            }
-            else -> {
-                Logger.e("createSource: Invalid source type: $sourceType")
-            }
+        var sampleRate = SpManager.getInt(SP_HACK_SAMPLE_RATE_KEY, 20 * 1000 * 1000)   // 20Mhz
+        Logger.i("frequency:$frequency;------sampleRate:$sampleRate")
+        if (workStatus == AnalyzerProcessingLoop.WORK_STATUS_COLLECT) {
+            frequency = 40 * 1000 * 1000L           //40Mhz
+            sampleRate = 20 * 1000 * 1000           // 20Mhz
+        }
+        source = HackrfSource()
+        source?.let {
+            source?.frequency = frequency
+            source?.sampleRate = sampleRate
+        }
+        (source as HackrfSource).let {
+            it.vgaRxGain =
+                SpManager.getInt(
+                    SP_HACK_RF_VGA_RX_GAIN_KEY,
+                    HackrfSource.MAX_VGA_RX_GAIN / 2
+                )
+            it.lnaGain =
+                SpManager.getInt(SP_HACK__RF_LNA_GAIN_KEY, HackrfSource.MAX_LNA_GAIN / 2)
+            it.setAmplifier(SpManager.getBoolean(SP_HACK_RF_AMPLIFIER_KEY, false))
+            it.setAntennaPower(SpManager.getBoolean(SP_HACK_RF_ANTENNA_POWER_KEY, false))
+            it.frequencyOffset = SpManager.getInt(SP_HACK_RF_FREQUENCY_OFFSET_KEY, 0)
         }
         // inform the analyzer surface about the new source
         analyzerSurface?.setSource(source)
@@ -143,26 +150,12 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
      * @return true success false error
      */
     private fun openSource(): Boolean {
-        val sourceType = SpManager.getInt(SP_SOURCE_TYPE_KEY, SOURCE_HACK_RF_VALUE)
-        when (sourceType) {
-            SOURCE_FILE_VALUE -> {
-            }
-            SOURCE_HACK_RF_VALUE -> {
-                if (source != null && source is HackrfSource) {
-                    return source!!.open(this, this)
-                } else {
-                    Logger.e("openSource: sourceType is SOURCE_HACK_RF_VALUE,but source is null or of other type.")
-                    return false
-                }
-            }
-            SOURCE_RTL_SDR_VALUE -> {
-            }
-            else -> {
-                Logger.e("openSource: Invalid source type: " + sourceType);
-                return false
-            }
+        return if (source != null && source is HackrfSource) {
+            source!!.open(this, this)
+        } else {
+            Logger.e("openSource: sourceType is SOURCE_HACK_RF_VALUE,but source is null or of other type.")
+            false
         }
-        return false
     }
 
     /**
@@ -219,7 +212,6 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
 
     private fun startAnalyzer() {
         stopAnalyzer() //运行时停止，这确保我们不会以多个线程循环
-
         //
         val fftSize = SpManager.getInt(SP_FFT_SIZE_KEY, 4096)
         val frameRate = SpManager.getInt(SP_FRAME_RATE_KEY, 10)
@@ -248,7 +240,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         // 创建scheduler 和processingLoop的新实例
         scheduler = Scheduler(fftSize, source)
         analyzerProcessingLoop = AnalyzerProcessingLoop(
-            analyzerSurface!!,          // 分析仪绘制实时数据曲线的view
+            //   analyzerSurface!!,          // 分析仪绘制实时数据曲线的view
             fftSize,                    // 快速傅里叶变换采样数
             scheduler?.fftOutputQueue,  // 对处理循环输入队列的引用
             scheduler?.fftInputQueue,   // 对缓冲池返回队列的引用
@@ -257,16 +249,16 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
 
         if (dynamicFrameRate) {
             analyzerProcessingLoop?.isDynamicFrameRate = true
-            analyzerProcessingLoop?.setWorkStatus(AnalyzerProcessingLoop.WORK_STATUS_DEFAULT)
         } else {
             analyzerProcessingLoop?.isDynamicFrameRate = false
             analyzerProcessingLoop?.frameRate = frameRate
         }
+        analyzerProcessingLoop?.setWorkStatus(workStatus)
         //启动两个线程
         scheduler?.start()
         analyzerProcessingLoop?.start()
         // ????
-        scheduler?.channelFrequency = analyzerSurface!!.getChannelFrequency()
+        //scheduler?.channelFrequency = analyzerSurface!!.getChannelFrequency()
 
         // 启动解调器线程
         demodulator =
@@ -301,7 +293,11 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
                 //我们现在正在以不兼容的采样率进行记录。
                 Logger.i("setDemodulationMode：录制正在运行 " + source?.sampleRate + " Sps。无法启动解调。")
                 runOnUiThread {
-                    Toast.makeText(this, "正在以不兼容的采样率运行录制以进行解调！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        "正在以不兼容的采样率运行录制以进行解调！",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
                 return
             }
@@ -363,10 +359,6 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -390,108 +382,157 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
      *  将检查是否有任何偏好与应用程序的当前状态冲突并修复它
      */
     private fun checkForChangedPreferences() {
-        // source type (检查数据源的种类)
-        val sourceType = SpManager.getInt(SP_SOURCE_TYPE_KEY, 1)
-        if (source != null) {
-            when (sourceType) {
-                SOURCE_FILE_VALUE -> {
-
-                }
-                SOURCE_HACK_RF_VALUE -> {
-                    if (source !is HackrfSource) {
-                        source?.close()
-                        createSource()
-                    } else {
-                        val amp = SpManager.getBoolean(SP_HACK_RF_AMPLIFIER_KEY, false)
-                        val antennaPower = SpManager.getBoolean(SP_HACK_RF_ANTENNA_POWER_KEY, false)
-                        val frequencyOffset = SpManager.getInt(SP_HACK_RF_FREQUENCY_OFFSET_KEY, 0)
-                        (source as HackrfSource).let {
-                            if (it.isAmplifierOn != amp) it.setAmplifier(amp)
-                            if (it.isAntennaPowerOn != antennaPower) it.setAntennaPower(antennaPower)
-                            if (it.frequencyOffset != frequencyOffset)
-                                it.frequencyOffset = frequencyOffset
-                        }
-                    }
-                }
-                SOURCE_RTL_SDR_VALUE -> {
-
-                }
+        if (source !is HackrfSource) {
+            source?.close()
+            createSource()
+        } else {
+            val amp = SpManager.getBoolean(SP_HACK_RF_AMPLIFIER_KEY, false)
+            val antennaPower = SpManager.getBoolean(SP_HACK_RF_ANTENNA_POWER_KEY, false)
+            val frequencyOffset = SpManager.getInt(SP_HACK_RF_FREQUENCY_OFFSET_KEY, 0)
+            (source as HackrfSource).let {
+                if (it.isAmplifierOn != amp) it.setAmplifier(amp)
+                if (it.isAntennaPowerOn != antennaPower) it.setAntennaPower(antennaPower)
+                if (it.frequencyOffset != frequencyOffset)
+                    it.frequencyOffset = frequencyOffset
             }
         }
-
         if (analyzerSurface != null) {
             // ?????
         }
-
-
     }
 
-    override fun onIQSourceReady(source: IQSourceInterface?) {
-
+    override fun onIQSourceReady(source: IQSourceInterface?) { // is called after source.open()
+        if (running) {
+            startAnalyzer()                                    // will start the processing loop,scheduler and source
+        }
     }
 
     override fun onIQSourceError(source: IQSourceInterface?, message: String?) {
-
+        Logger.e("Error with Source:$message")
+        stopAnalyzer()
+        if (source != null && source.isOpen) {
+            source.close()
+        }
     }
 
     override fun updateDemodulationMode(newDemodulationMode: Int): Boolean {
-        TODO("Not yet implemented")
+        if (scheduler == null || demodulator == null || source == null) {
+            Logger.e("updateDemodulationMode: scheduler/demodulator/source is null (no demodulation running)")
+            return false
+        }
+        setDemodulationMode(newDemodulationMode)
+        return true
     }
 
     override fun updateChannelWidth(newChannelWidth: Int): Boolean {
-        TODO("Not yet implemented")
+        if (demodulator != null) {
+            if (demodulator?.setChannelWidth(newChannelWidth) == true) {
+                analyzerSurface?.channelWidth = newChannelWidth
+                return true
+            }
+        }
+        Logger.i("newChannelWidth：$newChannelWidth")
+        return false
     }
 
     override fun updateChannelFrequency(newChannelFrequency: Long): Boolean {
-        TODO("Not yet implemented")
+        if (scheduler != null) {
+            scheduler?.channelFrequency = newChannelFrequency
+            analyzerSurface?.setChannelFrequency(newChannelFrequency)
+            return true
+        }
+        return false
     }
 
     override fun updateSourceFrequency(newSourceFrequency: Long): Boolean {
-        TODO("Not yet implemented")
+        if (source != null && newSourceFrequency <= source!!.maxFrequency && newSourceFrequency >= source!!.minFrequency) {
+            source?.frequency = newSourceFrequency
+            analyzerSurface?.virtualFrequency = newSourceFrequency
+            return true
+        }
+        return false
     }
 
     override fun updateSampleRate(newSampleRate: Int): Boolean {
-        TODO("Not yet implemented")
+        if (source != null) {
+            if (scheduler == null || false == scheduler?.isRecording) {
+                source!!.sampleRate = newSampleRate
+                return true
+            }
+        }
+        return false
     }
 
     override fun updateSquelch(newSquelch: Float) {
-        TODO("Not yet implemented")
+        analyzerSurface?.setSquelch(newSquelch)
     }
 
     override fun updateSquelchSatisfied(squelchSatisfied: Boolean): Boolean {
-        TODO("Not yet implemented")
+        if (scheduler != null) {
+            scheduler?.setSquelchSatisfied(squelchSatisfied)
+            return true
+        }
+        return false
     }
 
     override fun requestCurrentChannelWidth(): Int {
-        TODO("Not yet implemented")
+        return if (demodulator != null) {
+            demodulator!!.channelWidth
+        } else {
+            -1
+        }
     }
 
     override fun requestCurrentChannelFrequency(): Long {
-        TODO("Not yet implemented")
+        return if (scheduler != null) {
+            return scheduler!!.channelFrequency
+        } else {
+            -1
+        }
     }
 
     override fun requestCurrentDemodulationMode(): Int {
-        TODO("Not yet implemented")
+        return demodulationMode
     }
 
     override fun requestCurrentSquelch(): Float {
-        TODO("Not yet implemented")
+        return if (analyzerSurface != null) {
+            analyzerSurface!!.getSquelch()
+        } else {
+            Float.NaN
+        }
     }
 
     override fun requestCurrentSourceFrequency(): Long {
-        TODO("Not yet implemented")
+        return if (source != null) {
+            source!!.frequency
+        } else {
+            -1
+        }
     }
 
     override fun requestCurrentSampleRate(): Int {
-        TODO("Not yet implemented")
+        return if (source != null) {
+            source!!.sampleRate
+        } else {
+            return -1
+        }
     }
 
     override fun requestMaxSourceFrequency(): Long {
-        TODO("Not yet implemented")
+        return if (source != null) {
+            source!!.maxFrequency
+        } else {
+            -1
+        }
     }
 
-    override fun requestSupportedSampleRates(): IntArray {
-        TODO("Not yet implemented")
+    override fun requestSupportedSampleRates(): IntArray? {
+        return if (source != null) {
+            source!!.supportedSampleRates
+        } else {
+            null
+        }
     }
 
 

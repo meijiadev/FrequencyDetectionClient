@@ -1,4 +1,4 @@
-package com.example.frequencydetectionclient;
+package com.example.frequencydetectionclient.iq;
 
 /**
  * Module:      RFControlInterface.java

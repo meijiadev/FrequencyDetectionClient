@@ -1,4 +1,4 @@
-package com.example.frequencydetectionclient;
+package com.example.frequencydetectionclient.iq;
 
 import android.content.Context;
 

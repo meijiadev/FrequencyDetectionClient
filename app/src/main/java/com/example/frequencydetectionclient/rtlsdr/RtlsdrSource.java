@@ -4,7 +4,7 @@ import android.content.Context;
 
 import com.example.frequencydetectionclient.bean.SamplePacket;
 import com.example.frequencydetectionclient.iq.IQConverter;
-import com.example.frequencydetectionclient.IQSourceInterface;
+import com.example.frequencydetectionclient.iq.IQSourceInterface;
 import com.example.frequencydetectionclient.utils.Unsigned8BitIQConverter;
 import com.orhanobut.logger.Logger;
 

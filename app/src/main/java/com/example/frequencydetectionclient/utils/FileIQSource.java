@@ -2,7 +2,7 @@ package com.example.frequencydetectionclient.utils;
 
 import android.content.Context;
 
-import com.example.frequencydetectionclient.IQSourceInterface;
+import com.example.frequencydetectionclient.iq.IQSourceInterface;
 import com.example.frequencydetectionclient.bean.SamplePacket;
 import com.example.frequencydetectionclient.iq.IQConverter;
 import com.orhanobut.logger.Logger;
