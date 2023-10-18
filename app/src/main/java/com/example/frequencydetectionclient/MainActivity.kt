@@ -1,11 +1,7 @@
 package com.example.frequencydetectionclient
 
-import android.content.Intent
-import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Bundle
-import android.os.PersistableBundle
-import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
