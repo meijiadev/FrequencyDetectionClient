@@ -13,14 +13,11 @@ import kotlin.math.log10
 import kotlin.math.sqrt
 
 /**
- * <h1>RF Analyzer - Analyzer Processing Loop</h1>
- *
- *
  * Module:      AnalyzerProcessingLoop.java
  * Description: 该线程将从传入队列（由调度器提供）中获取样本，进行信号处理（fft），然后将结果转发到固定费率。它稳定了fft的生成速率，从而给出瀑布显示线性时间尺度。
  */
 class AnalyzerProcessingLoop(
-  //  private val view: AnalyzerSurface,
+    private val view: AnalyzerSurface,
     fftSize: Int,
     inputQueue: ArrayBlockingQueue<SamplePacket>?,
     returnQueue: ArrayBlockingQueue<SamplePacket>?,
@@ -43,7 +40,7 @@ class AnalyzerProcessingLoop(
     /**
      * 扫描频段
      */
-    private var collectQueue: MutableMap<String, Float>? = null
+    private var collectQueue: MutableMap<Long, FloatArray>? = null
 
 
     /**
@@ -145,9 +142,9 @@ class AnalyzerProcessingLoop(
 
                 WORK_STATUS_DEFAULT -> {
                     // 把结果推到表面上去:
-//                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//                        view.draw(mag!!, frequency, sampleRate, frameRate, load)
-//                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        view.draw(mag!!, frequency, sampleRate, frameRate, load)
+                    }
                     // 计算该帧的剩余时间(根据帧速率)，并在该时间内休眠:
                     sleepTime = 1000 / frameRate - (System.currentTimeMillis() - startTime)
 //                    Logger.i("sleepTime:$sleepTime");
@@ -182,42 +179,27 @@ class AnalyzerProcessingLoop(
     }
 
     var preFrequency: Long = 0  //上一次的频率
-    var count: Int = 0
-    var totalData: Float = 0f
     private val startFre = 40 * 1000 * 1000L  //100 mhz
     private val endFre = 3000 * 1000 * 1000L  // 1000mhz
-    val stepFre = 20 * 1000 * 1000L
-    var startTime: Long = 0
-    var endTime: Long = 0
+    private var startTime: Long = 0
+    private var endTime: Long = 0
 
     /**
      * 采集周围环境的
      */
     private fun doCollecting(mag: FloatArray, frequency: Long, rate: Int) {
-        var data = 0f
-        for (i in mag.indices) {
-            data += mag[i]
-        }
-        var avgData = data / mag.size
-        if (frequency == preFrequency) {
-            totalData += avgData
-            count++
-            avgData = totalData / count
-        } else {
-            //collectQueue?.set()
-            preFrequency = frequency
-            count = 0
-            totalData = 0f
-        }
-        collectQueue?.set(frequency.toString(), avgData)
-        Logger.i("--$avgData;$frequency;$rate；${collectQueue?.size}")
+        collectQueue?.set(frequency, mag)
+        Logger.i("-----$frequency;$rate；${collectQueue?.size}")
         if (frequency == startFre) {
             startTime = System.currentTimeMillis()
         }
         val newFre = frequency + rate
-        if (newFre <= endFre)
-            mIQSourceInterface?.frequency = newFre
-        else {
+        if (newFre <= endFre) {
+            if (newFre != preFrequency){
+                preFrequency = newFre
+                mIQSourceInterface?.frequency = newFre
+            }
+        } else {
             endTime = System.currentTimeMillis()
             Logger.i("跑完3Ghz总耗时:${endTime - startTime}")
             workStatus = 4
@@ -238,7 +220,7 @@ class AnalyzerProcessingLoop(
 
         // 计算fft:
         fftBlock?.fft(re, im)
-
+        //  Logger.i("采样的数据长度：${samples.size()}")
         // 计算对数量级:
         var realPower: Float
         var imagPower: Float

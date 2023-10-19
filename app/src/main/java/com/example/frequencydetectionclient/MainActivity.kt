@@ -82,11 +82,29 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         } else {
             running = SpManager.getBoolean(SP_AUTO_START_KEY, false)
         }
-
         volumeControlStream = AudioManager.STREAM_MUSIC
-
+        initView()
         onClick()
         Logger.i("启动频率侦测仪器")
+    }
+
+    private fun initView() {
+        analyzerSurface = viewBinding.analyzerSurface
+        analyzerSurface?.let {
+            //注册监听事件
+            it.setRFListener(this@MainActivity)
+            it.setVerticalScrollEnabled(true)
+            it.setVerticalZoomEnabled(true)
+            it.setDecoupledAxis(false)
+            it.isDisplayRelativeFrequencies = false
+            it.setWaterfallColorMapType(4)
+            it.setFftDrawingType(2)
+            it.setFftRatio(0.5f)
+            it.setFontSize(2)
+            it.isShowDebugInformation = false
+        }
+
+
     }
 
     private fun onClick() {
@@ -236,7 +254,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         // 创建scheduler 和processingLoop的新实例
         scheduler = Scheduler(fftSize, source)
         analyzerProcessingLoop = AnalyzerProcessingLoop(
-            //   analyzerSurface!!,          // 分析仪绘制实时数据曲线的view
+            analyzerSurface!!,          // 分析仪绘制实时数据曲线的view
             fftSize,                    // 快速傅里叶变换采样数
             scheduler?.fftOutputQueue,  // 对处理循环输入队列的引用
             scheduler?.fftInputQueue,   // 对缓冲池返回队列的引用
@@ -254,7 +272,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         scheduler?.start()
         analyzerProcessingLoop?.start()
         // ????
-        //scheduler?.channelFrequency = analyzerSurface!!.getChannelFrequency()
+        scheduler?.channelFrequency = analyzerSurface!!.getChannelFrequency()
 
         // 启动解调器线程
         demodulator =

@@ -11,6 +11,7 @@ import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.SweepGradient
 import android.os.Build
+import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -23,19 +24,21 @@ import com.example.frequencydetectionclient.hackrf.HackrfSource
 import com.example.frequencydetectionclient.iq.IQSourceInterface
 import com.example.frequencydetectionclient.rtlsdr.RtlsdrSource
 import com.orhanobut.logger.Logger
+import org.w3c.dom.Attr
 
 /**
  * Module:      AnalyzerSurface.java
  * Description: 这是一个扩展SurfaceView的自定义视图。它将显示频谱和瀑布图表
  */
-class AnalyzerSurface(context: Context?, rfControlInterface: RFControlInterface?) :
-    SurfaceView(context), SurfaceHolder.Callback, OnScaleGestureListener,
+class AnalyzerSurface @JvmOverloads constructor(context: Context?, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
+    SurfaceView(context, attrs, defStyleAttr), SurfaceHolder.Callback, OnScaleGestureListener,
     GestureDetector.OnGestureListener {
     // 手势检测器检测缩放、滚动。。。
     private var scaleGestureDetector: ScaleGestureDetector? = null
     private var gestureDetector: GestureDetector? = null
     private var source: IQSourceInterface? = null                              // 引用IQ源来调优和检索属性
-    private var rfControlInterface: RFControlInterface? = null                // 对RFControlInterface处理程序的引用
+    private var rfControlInterface: RFControlInterface? =
+        null                // 对RFControlInterface处理程序的引用
     private var defaultPaint: Paint                                // 绘制对象以在画布上绘制位图
     private var blackPaint: Paint                                 // 将对象绘制为黑色(擦除)
     private var fftPaint: Paint                                    // 绘制对象来绘制fft线
@@ -131,7 +134,6 @@ class AnalyzerSurface(context: Context?, rfControlInterface: RFControlInterface?
      */
     init {
         matrix = Matrix()
-        this.rfControlInterface = rfControlInterface
         defaultPaint = Paint()
         blackPaint = Paint()
         blackPaint.color = Color.BLACK
@@ -179,6 +181,11 @@ class AnalyzerSurface(context: Context?, rfControlInterface: RFControlInterface?
         // 实例化手势检测器：
         scaleGestureDetector = ScaleGestureDetector(context, this)
         gestureDetector = GestureDetector(context, this)
+    }
+
+    fun setRFListener(rfControlInterface: RFControlInterface?) {
+        this.rfControlInterface = rfControlInterface
+
     }
 
     /**
