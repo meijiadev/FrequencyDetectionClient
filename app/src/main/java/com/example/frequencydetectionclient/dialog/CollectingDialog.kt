@@ -14,8 +14,8 @@ class CollectingDialog(context: Context) : CenterPopupView(context) {
     private val tvStart: TextView by lazy { findViewById(R.id.tv_start) }
     override fun onCreate() {
         super.onCreate()
-        process?.setOnClickListener {
-            process?.animatePercentage(0)
+        process.setOnClickListener {
+            process.animatePercentage(0)
             Logger.i("点击process")
         }
         tvStart.setOnClickListener {
@@ -24,9 +24,16 @@ class CollectingDialog(context: Context) : CenterPopupView(context) {
         // process?.animatePercentage(100)
 
 
-        MyApp.appViewModel.collectingProcessData.observe(this){
+        MyApp.appViewModel.collectingProcessData.observe(this) {
             it?.let {
                 process.animatePercentage(it)
+            }
+        }
+
+        MyApp.appViewModel.workStatusData.observe(this) {
+            if (it == 4) {
+                dismiss()
+
             }
         }
     }

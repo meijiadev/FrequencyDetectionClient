@@ -128,12 +128,12 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         viewBinding.tvCollect.setOnClickListener {
             Logger.i("进入采集程序")
             source?.let {
-                it?.frequency = START_FREQUENCY           // 设置频率
-                it?.sampleRate = SAMPLE_RATE             // 设置采样率
+                it.frequency = START_FREQUENCY           // 设置频率
+                it.sampleRate = SAMPLE_RATE             // 设置采样率
             }
             workStatus = AnalyzerProcessingLoop.WORK_STATUS_COLLECT
             startAnalyzer()
-            var collectingDialog = CollectingDialog(this)
+            val collectingDialog = CollectingDialog(this)
             XPopup.Builder(this)
                 .isViewMode(true)
                 .isDestroyOnDismiss(true)

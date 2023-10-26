@@ -221,10 +221,10 @@ class AnalyzerProcessingLoop(
             Logger.i("跑完3Ghz总耗时:${endTime - startTime}")
             preFrequency = START_FREQUENCY
             mIQSourceInterface?.frequency = START_FREQUENCY
-            MyApp.appViewModel.collectingProcessData.value = collectCount * 10
+            MyApp.appViewModel.collectingProcessData.postValue(collectCount * 10)
             if (collectCount == 10) {
                 workStatus = WORK_STATUS_ERROR
-                MyApp.appViewModel.workStatusData.value = workStatus
+                MyApp.appViewModel.workStatusData.postValue(workStatus)
             }
         }
     }
