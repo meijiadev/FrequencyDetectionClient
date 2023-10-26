@@ -56,6 +56,10 @@
     <color name="black333333">#333333</color>
     <color name="black666666">#666666</color>
 
+    <color name="circle_view_percentage_text_color">#4f519f</color>
+    <color name="circle_view_attendance_text_color">#a0adb9</color>
+    <color name="circle_view_background_color">#dde3f5</color>
+    <color name="circle_view_progress_color">#3177f8</color>
 
     <!-- 透明色 -->
     <color name="transparent">#00000000</color>
@@ -124,6 +128,7 @@
     <color name="pink">#FFFFC0CB</color>
     <!-- 橙色 -->
     <color name="orange">#FFFFA500</color>
+    <color name="orange1">#DFB782</color>
 
 
     <color name="blue20">#ff08a6df</color>

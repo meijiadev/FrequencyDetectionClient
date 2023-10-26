@@ -50,4 +50,11 @@ dependencies {
 
     // LiveDataBus
     implementation 'io.github.jeremyliao:live-event-bus-x:1.8.0'
+
+    implementation 'com.github.li-xiaojun:XPopup:2.8.0'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+    // Shape 框架：https://github.com/getActivity/ShapeView
+    implementation 'com.github.getActivity:ShapeView:6.0'
+
 }

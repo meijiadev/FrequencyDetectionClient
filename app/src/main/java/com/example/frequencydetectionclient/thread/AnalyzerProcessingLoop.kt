@@ -1,6 +1,12 @@
 package com.example.frequencydetectionclient.thread
 
 import android.os.Build
+import com.example.frequencydetectionclient.MainActivity.Companion.END_FREQUENCY
+import com.example.frequencydetectionclient.MainActivity.Companion.START_FREQUENCY
+import com.example.frequencydetectionclient.MainActivity.Companion.collectQueue
+import com.example.frequencydetectionclient.MainActivity.Companion.scanningMap
+import com.example.frequencydetectionclient.MyApp
+import com.example.frequencydetectionclient.bean.MaxFrequency
 import com.example.frequencydetectionclient.utils.FFT
 import com.example.frequencydetectionclient.bean.SamplePacket
 import com.example.frequencydetectionclient.iq.IQSourceInterface
@@ -37,10 +43,10 @@ class AnalyzerProcessingLoop(
 
     var mIQSourceInterface: IQSourceInterface? = null                // 对RFControlInterface处理程序的引用
 
-    /**
-     * 扫描频段
-     */
-    private var collectQueue: MutableMap<Long, FloatArray>? = null
+//    /**
+//     * 扫描频段
+//     */
+//    private var collectQueue: MutableMap<Long, FloatArray>? = null
 
 
     /**
@@ -93,16 +99,13 @@ class AnalyzerProcessingLoop(
     fun setWorkStatus(status: Int) {
         workStatus = status
         Logger.i("工作状态是：$workStatus")
-        if (workStatus == WORK_STATUS_COLLECT) {
-            collectQueue = mutableMapOf()
-            mIQSourceInterface?.frequency = startFre
-        }
     }
 
     override fun run() {
         Logger.i(
             "Processing loop started. (Thread: " + this.name + ")"
         )
+        Logger.i("每hz应该分配的采样数：$perHzData")
         var startTime: Long // timestamp when signal processing is started
         var sleepTime: Long // time (in ms) to sleep before the next run to meet the frame rate
         var frequency: Long // center frequency of the incoming samples
@@ -137,7 +140,7 @@ class AnalyzerProcessingLoop(
                 }
 
                 WORK_STATUS_SCAN -> {
-
+                    doScanning(mag!!, frequency, sampleRate)
                 }
 
                 WORK_STATUS_DEFAULT -> {
@@ -170,6 +173,10 @@ class AnalyzerProcessingLoop(
 //                    }
                 }
 
+                else -> {
+
+                }
+
             }
         }
         stopRequested = true
@@ -179,31 +186,103 @@ class AnalyzerProcessingLoop(
     }
 
     var preFrequency: Long = 0  //上一次的频率
-    private val startFre = 40 * 1000 * 1000L  //100 mhz
-    private val endFre = 3000 * 1000 * 1000L  // 1000mhz
     private var startTime: Long = 0
     private var endTime: Long = 0
+
+    //每hz应该分配到的采样数
+    private var perHzData = 4096 / (20 * 1000 * 1000f)
+    private var collectCount = 0
+
 
     /**
      * 采集周围环境的
      */
     private fun doCollecting(mag: FloatArray, frequency: Long, rate: Int) {
-        collectQueue?.set(frequency, mag)
-        Logger.i("-----$frequency;$rate；${collectQueue?.size}")
-        if (frequency == startFre) {
+        collectCount++
+        for (i in mag.indices) {
+            if (mag[i] < -999) {
+                mag[i] = -30f
+            }
+        }
+        collectQueue[frequency] = mag
+        Logger.i("-----$frequency")
+        if (frequency == START_FREQUENCY) {
             startTime = System.currentTimeMillis()
+            Logger.i("扫描起点：$START_FREQUENCY")
         }
         val newFre = frequency + rate
-        if (newFre <= endFre) {
-            if (newFre != preFrequency){
+        if (newFre <= END_FREQUENCY) {
+            if (newFre != preFrequency) {
                 preFrequency = newFre
                 mIQSourceInterface?.frequency = newFre
             }
         } else {
             endTime = System.currentTimeMillis()
             Logger.i("跑完3Ghz总耗时:${endTime - startTime}")
-            workStatus = 4
+            preFrequency = START_FREQUENCY
+            mIQSourceInterface?.frequency = START_FREQUENCY
+            MyApp.appViewModel.collectingProcessData.value = collectCount * 10
+            if (collectCount == 10) {
+                workStatus = WORK_STATUS_ERROR
+                MyApp.appViewModel.workStatusData.value = workStatus
+            }
         }
+    }
+
+    /**
+     * 进行扫频操作，与之前保存的进行对比
+     */
+    private fun doScanning(mag: FloatArray, frequency: Long, rate: Int) {
+        if (frequency == START_FREQUENCY) {
+            startTime = System.currentTimeMillis()
+        }
+        val newFre = frequency + rate
+        //scanningMap[frequency] = mag
+        val maxFrequency = findMaxByFor(mag)
+        val mag = collectQueue[frequency]
+        val maxValue = maxFrequency.maxValue
+        val maxIndex = maxFrequency.maxIndex
+        if (mag != null) {
+            if (maxIndex < mag.size - 1) {
+                val perValue = mag[maxIndex]
+                if (perValue < -999) {
+                    Logger.i("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
+                } else if (perValue + 5 < maxValue) {
+                    val fre = maxIndex / perHzData
+                    val abnormalFre = frequency - rate / 2 + fre
+                    Logger.i("异常信号：$frequency,$maxValue,$perValue,$maxValue")
+                }
+            }
+        }
+        if (newFre <= END_FREQUENCY) {
+            if (newFre != preFrequency) {
+                preFrequency = newFre
+                mIQSourceInterface?.frequency = newFre
+            }
+        } else {
+            endTime = System.currentTimeMillis()
+            Logger.d("scanning time :${endTime - startTime}")
+            //workStatus = 4
+            preFrequency = START_FREQUENCY
+            mIQSourceInterface?.frequency = START_FREQUENCY
+        }
+
+    }
+
+
+    /**
+     * 找出列表的最大值和相应的索引
+     */
+    private fun findMaxByFor(mag: FloatArray): MaxFrequency {
+        var maxValue = mag[0]
+        var maxIndex = 0
+        for (i in mag.indices) {
+            if (mag[i] > maxValue) {
+                maxValue = mag[i]
+                maxIndex = i
+            }
+        }
+        return MaxFrequency(maxValue, maxIndex)
     }
 
 
@@ -252,5 +331,7 @@ class AnalyzerProcessingLoop(
         const val WORK_STATUS_COLLECT = 1
         const val WORK_STATUS_SCAN = 2
         const val WORK_STATUS_DEFAULT = 3
+        const val WORK_STATUS_ERROR = 4
+
     }
 }

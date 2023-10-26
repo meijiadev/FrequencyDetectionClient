@@ -37,7 +37,7 @@ class MyApp : Application(), ViewModelStoreOwner {
     /**
      * 获取作用域在Application的ViewModel对象
      */
-    fun <T : ViewModel> getApplicationViewModel(modelClass: Class<T>): T {
+    private fun <T : ViewModel> getApplicationViewModel(modelClass: Class<T>): T {
         return mApplicationProvider.get(modelClass)
     }
 

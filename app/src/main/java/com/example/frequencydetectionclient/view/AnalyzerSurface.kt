@@ -1049,7 +1049,7 @@ class AnalyzerSurface @JvmOverloads constructor(context: Context?, attrs: Attrib
             c = this.holder.lockCanvas()
             synchronized(this.holder) {
                 if (c != null) {
-                    //drawCollect(c)
+                    drawCollect(c)
                     // Draw all the components
                     drawFFT(c, mag, start, end)
                     drawWaterfall(c)

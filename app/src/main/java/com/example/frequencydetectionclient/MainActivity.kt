@@ -6,6 +6,7 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.frequencydetectionclient.databinding.ActivityMainBinding
+import com.example.frequencydetectionclient.dialog.CollectingDialog
 import com.example.frequencydetectionclient.hackrf.HackrfSource
 import com.example.frequencydetectionclient.iq.IQSourceInterface
 import com.example.frequencydetectionclient.iq.RFControlInterface
@@ -14,6 +15,8 @@ import com.example.frequencydetectionclient.thread.AnalyzerProcessingLoop
 import com.example.frequencydetectionclient.thread.Demodulator
 import com.example.frequencydetectionclient.thread.Scheduler
 import com.example.frequencydetectionclient.view.AnalyzerSurface
+import com.lxj.xpopup.XPopup
+import com.lxj.xpopup.enums.PopupAnimation
 import com.orhanobut.logger.Logger
 import java.io.File
 
@@ -51,6 +54,20 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         // bundle
         const val STATE_SAVE_RUNNING = "save_state_running"
         const val STATE_SAVE_DEMODULATOR_MODE = "save_state_demodulator_mode"
+
+        /**
+         * 采集的频段
+         */
+        var collectQueue: MutableMap<Long, FloatArray> = mutableMapOf()
+
+        /**
+         * 扫描实时频段
+         */
+        var scanningMap: MutableMap<Long, FloatArray> = mutableMapOf()
+
+        const val START_FREQUENCY = 40 * 1000 * 1000L      // 起始频率 40MHZ
+        const val END_FREQUENCY = 3000 * 1000 * 1000L      // 结束频率
+        const val SAMPLE_RATE = 20 * 1000 * 1000         // 采样率 20mhz
 
     }
 
@@ -110,13 +127,32 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
     private fun onClick() {
         viewBinding.tvCollect.setOnClickListener {
             Logger.i("进入采集程序")
+            source?.let {
+                it?.frequency = START_FREQUENCY           // 设置频率
+                it?.sampleRate = SAMPLE_RATE             // 设置采样率
+            }
             workStatus = AnalyzerProcessingLoop.WORK_STATUS_COLLECT
             startAnalyzer()
+            var collectingDialog = CollectingDialog(this)
+            XPopup.Builder(this)
+                .isViewMode(true)
+                .isDestroyOnDismiss(true)
+                .dismissOnTouchOutside(true)
+                .popupAnimation(PopupAnimation.TranslateFromBottom)
+                .asCustom(collectingDialog)
+                .show()
         }
 
         viewBinding.tvDetection.setOnClickListener {
+            source?.let {
+                it?.frequency = START_FREQUENCY           // 设置频率
+                it?.sampleRate = SAMPLE_RATE             // 设置采样率
+            }
+
             Logger.i("进入侦测页面")
             workStatus = AnalyzerProcessingLoop.WORK_STATUS_SCAN
+            startAnalyzer()
+
         }
 
     }

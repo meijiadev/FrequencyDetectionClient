@@ -7,6 +7,10 @@ class AppViewModel : ViewModel() {
     // 当前信号接收器的工作状态
     var workStatusData = MutableLiveData<Int>()
 
+    // 监听采集的进度
+    var collectingProcessData=MutableLiveData<Int>()
+
+
 
 
 }
