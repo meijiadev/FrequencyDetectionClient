@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.frequencydetectionclient.databinding.ActivityMainBinding
 import com.example.frequencydetectionclient.dialog.CollectingDialog
+import com.example.frequencydetectionclient.dialog.ScanDialog
 import com.example.frequencydetectionclient.hackrf.HackrfSource
 import com.example.frequencydetectionclient.iq.IQSourceInterface
 import com.example.frequencydetectionclient.iq.RFControlInterface
@@ -18,6 +19,9 @@ import com.example.frequencydetectionclient.view.AnalyzerSurface
 import com.lxj.xpopup.XPopup
 import com.lxj.xpopup.enums.PopupAnimation
 import com.orhanobut.logger.Logger
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 
 
@@ -102,6 +106,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         volumeControlStream = AudioManager.STREAM_MUSIC
         initView()
         onClick()
+        initObserver()
         Logger.i("启动频率侦测仪器")
     }
 
@@ -144,17 +149,91 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         }
 
         viewBinding.tvDetection.setOnClickListener {
-            source?.let {
-                it?.frequency = START_FREQUENCY           // 设置频率
-                it?.sampleRate = SAMPLE_RATE             // 设置采样率
+            if (collectQueue.isNotEmpty()) {
+                workStatus = AnalyzerProcessingLoop.WORK_STATUS_SCAN
+                source?.let {
+                    it?.frequency = START_FREQUENCY           // 设置频率
+                    it?.sampleRate = SAMPLE_RATE             // 设置采样率
+                }
+                analyzerProcessingLoop?.setWorkStatus(workStatus)
+                Logger.i("进入侦测页面")
+                if (!running) {
+                    startAnalyzer()
+                }
+                val scanDialog = ScanDialog(this)
+                XPopup.Builder(this)
+                    .isViewMode(true)
+                    .isDestroyOnDismiss(true)
+                    .dismissOnTouchOutside(true)
+                    .popupAnimation(PopupAnimation.TranslateFromBottom)
+                    .asCustom(scanDialog)
+                    .show()
+            } else {
+                Toast.makeText(this, "请先进行信号采集", Toast.LENGTH_SHORT).show()
             }
-
-            Logger.i("进入侦测页面")
-            workStatus = AnalyzerProcessingLoop.WORK_STATUS_SCAN
-            startAnalyzer()
 
         }
 
+    }
+
+    /**
+     * 初始化监听事件
+     */
+    private fun initObserver() {
+        MyApp.appViewModel.scanStatusData.observe(this) {
+            when (it) {
+                ScanDialog.SCAN_STATUS_PAUSE -> {
+                    //stopAnalyzer()
+                    analyzerProcessingLoop?.setScanStatus(it)
+                }
+
+                ScanDialog.SCAN_STATUS_START -> {
+                    //startAnalyzer()
+                    analyzerProcessingLoop?.setScanStatus(it)
+                }
+
+                ScanDialog.SCAN_STATUS_STOP -> {
+                    stopAnalyzer()
+                }
+            }
+        }
+        // 过滤Wi-Fi
+        MyApp.appViewModel.wifiFilterData.observe(this) {
+            it?.let {
+                analyzerProcessingLoop?.setWifi(it)
+                SpManager.putBoolean(ScanDialog.SCAN_FILTER_WIFI_KEY, it)
+            }
+        }
+        // 过滤不规则的信号
+        MyApp.appViewModel.disorderFilterData.observe(this) {
+            it?.let {
+                analyzerProcessingLoop?.setDisorder(it)
+                SpManager.putBoolean(ScanDialog.SCAN_FILTER_DISORDER_KEY, it)
+            }
+
+        }
+        // 过滤基站下行信号
+        MyApp.appViewModel.stationFilterData.observe(this) {
+            it?.let {
+                Logger.i("是否过滤基站下行信号：$it")
+                analyzerProcessingLoop?.setStation(it)
+                SpManager.putBoolean(ScanDialog.SCAN_FILTER_STATION_KEY, it)
+            }
+        }
+        // 过滤对讲机信号
+        MyApp.appViewModel.interPhoneFilterData.observe(this) {
+            it?.let {
+                Logger.i("是否过滤对讲机信号：$it")
+                analyzerProcessingLoop?.setInterPhone(it)
+                SpManager.putBoolean(ScanDialog.SCAN_FILTER_INTER_PHONE_KEY, it)
+            }
+        }
+        MyApp.appViewModel.otherFilterData.observe(this) {
+            it?.let {
+                analyzerProcessingLoop?.setOtherFilter(it)
+                SpManager.putBoolean(ScanDialog.SCAN_FILTER_OTHER_2600_KEY, it)
+            }
+        }
     }
 
     /**
@@ -207,6 +286,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
             false
         }
     }
+
 
     /**
      * 停止射频分析，包括关闭调度器，处理循环和解调器
@@ -462,6 +542,10 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         stopAnalyzer()
         if (source != null && source.isOpen) {
             source.close()
+        }
+        GlobalScope.launch {
+            delay(3000)
+            startAnalyzer()
         }
     }
 

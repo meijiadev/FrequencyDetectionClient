@@ -9,6 +9,11 @@ import com.example.frequencydetectionclient.view.AttendanceRateView
 import com.lxj.xpopup.core.CenterPopupView
 import com.orhanobut.logger.Logger
 
+/**
+ * desc: 信号采集的额进度弹窗
+ * time：2023/10/28
+ * author： mei jia
+ */
 class CollectingDialog(context: Context) : CenterPopupView(context) {
     private val process: AttendanceRateView by lazy { findViewById(R.id.process) }
     private val tvStart: TextView by lazy { findViewById(R.id.tv_start) }

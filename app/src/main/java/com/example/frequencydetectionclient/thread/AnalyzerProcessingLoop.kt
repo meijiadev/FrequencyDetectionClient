@@ -9,7 +9,9 @@ import com.example.frequencydetectionclient.MyApp
 import com.example.frequencydetectionclient.bean.MaxFrequency
 import com.example.frequencydetectionclient.utils.FFT
 import com.example.frequencydetectionclient.bean.SamplePacket
+import com.example.frequencydetectionclient.dialog.ScanDialog
 import com.example.frequencydetectionclient.iq.IQSourceInterface
+import com.example.frequencydetectionclient.manager.SpManager
 import com.example.frequencydetectionclient.view.AnalyzerSurface
 import com.orhanobut.logger.Logger
 import java.util.concurrent.ArrayBlockingQueue
@@ -29,7 +31,7 @@ class AnalyzerProcessingLoop(
     returnQueue: ArrayBlockingQueue<SamplePacket>?,
     iqSourceInterface: IQSourceInterface
 ) : Thread() {
-    private var fftSize = 0 // FFT的大小
+    private var fftSize = 0 // FFT的大小   默认4096
 
     @JvmField
     var frameRate = 10 // 每秒帧数
@@ -43,6 +45,25 @@ class AnalyzerProcessingLoop(
 
     var mIQSourceInterface: IQSourceInterface? = null                // 对RFControlInterface处理程序的引用
 
+    // 过滤Wi-Fi
+    private var filterWifiEnable = false
+
+    // 过滤基站
+    private var filterStationEnable = false
+
+    // 过滤不规则信号
+    private var filterDisorderEnable = false
+
+    // 过滤对讲机的信号
+    private var filterInterPhoneEnable = false
+
+    // 2.6g信号
+    private var filterOtherEnable = false
+
+    // 频段扫描的
+    private var scanStatus: Int = 0
+
+
 //    /**
 //     * 扫描频段
 //     */
@@ -55,6 +76,47 @@ class AnalyzerProcessingLoop(
     override fun start() {
         stopRequested = false
         super.start()
+    }
+
+    /**
+     * 过滤Wi-Fi
+     */
+    fun setWifi(enable: Boolean) {
+        this.filterWifiEnable = enable
+        Logger.i("是否过滤Wi-Fi：$enable")
+    }
+
+    /**
+     * 过滤基站
+     */
+    fun setStation(enable: Boolean) {
+        this.filterStationEnable = enable
+        Logger.i("是否过滤不规则信号：$enable")
+    }
+
+    /**
+     * 过滤不规则无序的信号
+     */
+    fun setDisorder(enable: Boolean) {
+        this.filterDisorderEnable = enable
+    }
+
+    /**
+     * 过滤对讲机的信号
+     */
+    fun setInterPhone(enable: Boolean) {
+        this.filterInterPhoneEnable = enable
+    }
+
+    fun setOtherFilter(enable: Boolean) {
+        filterOtherEnable = enable
+    }
+
+    /**
+     * 设置扫描的状态
+     */
+    fun setScanStatus(status: Int) {
+        scanStatus = status
     }
 
     /**
@@ -94,11 +156,20 @@ class AnalyzerProcessingLoop(
     }
 
     /**
-     *
+     * 设置工作模式
      */
     fun setWorkStatus(status: Int) {
         workStatus = status
+        initPara()
         Logger.i("工作状态是：$workStatus")
+    }
+
+    private fun initPara() {
+        filterWifiEnable = SpManager.getBoolean(ScanDialog.SCAN_FILTER_WIFI_KEY, false)
+        filterStationEnable = SpManager.getBoolean(ScanDialog.SCAN_FILTER_STATION_KEY, false)
+        filterDisorderEnable = SpManager.getBoolean(ScanDialog.SCAN_FILTER_DISORDER_KEY, false)
+        filterInterPhoneEnable = SpManager.getBoolean(ScanDialog.SCAN_FILTER_INTER_PHONE_KEY, false)
+        filterOtherEnable = SpManager.getBoolean(ScanDialog.SCAN_FILTER_OTHER_2600_KEY, false)
     }
 
     override fun run() {
@@ -185,7 +256,7 @@ class AnalyzerProcessingLoop(
         )
     }
 
-    var preFrequency: Long = 0  //上一次的频率
+    private var preFrequency: Long = 0  //上一次的频率
     private var startTime: Long = 0
     private var endTime: Long = 0
 
@@ -193,41 +264,69 @@ class AnalyzerProcessingLoop(
     private var perHzData = 4096 / (20 * 1000 * 1000f)
     private var collectCount = 0
 
+    private var avMags = mutableListOf<MutableMap<Long, FloatArray>>()
+
 
     /**
      * 采集周围环境的
      */
     private fun doCollecting(mag: FloatArray, frequency: Long, rate: Int) {
-        collectCount++
+        val curMag = FloatArray(fftSize)
         for (i in mag.indices) {
             if (mag[i] < -999) {
-                mag[i] = -30f
+                curMag[i] = -20f
+            } else {
+                curMag[i] = mag[i]
             }
         }
-        collectQueue[frequency] = mag
-        Logger.i("-----$frequency")
+        collectQueue[frequency] = curMag
+        Logger.i("-----$frequency,$collectCount")
         if (frequency == START_FREQUENCY) {
             startTime = System.currentTimeMillis()
-            Logger.i("扫描起点：$START_FREQUENCY")
+            Logger.i("扫描起点：$START_FREQUENCY,$collectCount")
         }
-        val newFre = frequency + rate
+        val newFre = frequency + rate / 2
         if (newFre <= END_FREQUENCY) {
             if (newFre != preFrequency) {
                 preFrequency = newFre
                 mIQSourceInterface?.frequency = newFre
             }
         } else {
+            collectCount++
+            avMags.add(collectQueue)
             endTime = System.currentTimeMillis()
             Logger.i("跑完3Ghz总耗时:${endTime - startTime}")
             preFrequency = START_FREQUENCY
             mIQSourceInterface?.frequency = START_FREQUENCY
-            MyApp.appViewModel.collectingProcessData.postValue(collectCount * 10)
-            if (collectCount == 10) {
+            MyApp.appViewModel.collectingProcessData.postValue(collectCount * 5)
+            if (collectCount == 20) {
+
+                for ((k, v) in collectQueue) {
+                    var avMag = FloatArray(fftSize)
+                    var frequency = k
+                    for (j in 0 until fftSize) {
+                        var db = 0f
+                        var count = 0
+                        for (i in 0 until avMags.size) {
+                            val curCollectMap = avMags[i]
+                            val curMag = curCollectMap[frequency]
+                            curMag?.let {
+                                count++
+                                db += it[j]
+                            }
+                        }
+                        // Logger.i("total:$db,$frequency")
+                        avMag[j] = db / count
+                    }
+                    collectQueue[frequency] = avMag
+                }
+                collectCount = 0
                 workStatus = WORK_STATUS_ERROR
                 MyApp.appViewModel.workStatusData.postValue(workStatus)
             }
         }
     }
+
 
     /**
      * 进行扫频操作，与之前保存的进行对比
@@ -242,15 +341,110 @@ class AnalyzerProcessingLoop(
         val mag = collectQueue[frequency]
         val maxValue = maxFrequency.maxValue
         val maxIndex = maxFrequency.maxIndex
+        if (scanStatus == ScanDialog.SCAN_STATUS_PAUSE) {
+            return
+        }
         if (mag != null) {
             if (maxIndex < mag.size - 1) {
                 val perValue = mag[maxIndex]
                 if (perValue < -999) {
-                    Logger.i("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
-                } else if (perValue + 5 < maxValue) {
+                    Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
+                } else if (perValue + 8 < maxValue) {
                     val fre = maxIndex / perHzData
-                    val abnormalFre = frequency - rate / 2 + fre
-                    Logger.i("异常信号：$frequency,$maxValue,$perValue,$maxValue")
+                    val abnormalFre = (frequency - rate / 2 + fre) / 1000 / 1000
+
+                    if (abnormalFre > 700 && abnormalFre < 735) {
+                        // 700mhz 上行 703-733mhz 758-788 下行
+                        val msg = "700段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        Logger.i("700段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                    } else if (abnormalFre > 758 && abnormalFre < 788) {
+                        if (!filterStationEnable) {
+                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 823 && abnormalFre < 838) {
+                        // 850mhz 上行 825-835mhz  870-880mhz
+                        val msg = "850段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                        Logger.i("850段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 870 && abnormalFre < 880) {
+                        if (!filterStationEnable) {
+                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 885 && abnormalFre < 916) {
+                        // 889_904_915 mhz 移动_联通 上行
+                        val msg = "900段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                        Logger.i("900段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 934 && abnormalFre < 960) {
+                        if (!filterStationEnable) {
+                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 1707 && abnormalFre < 1788) {
+                        // 1710_1735_1765_1785  移动_联通_电信
+                        val msg = "1800段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                        Logger.i("1800段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 1805 && abnormalFre < 1880) {
+                        if (!filterStationEnable) {
+                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 2010 && abnormalFre < 2025) {
+                        val msg = "2000段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                        Logger.i("2000段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 1880 && abnormalFre < 1965) {
+                        // 1880_1920_1940_1965 上行信号
+                        val msg = "1.9G上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                        Logger.i("1.9G上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 2110 && abnormalFre < 2155) {
+                        if (!filterStationEnable) {
+                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 2297 && abnormalFre < 2367) {
+                        // 2300_2320_2370
+                        val msg = "2.3G异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                        Logger.i("2.3G异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
+                    } else if (abnormalFre > 2512 && abnormalFre < 2678) {
+                        if (!filterOtherEnable) {
+                            // 2515_2675
+                            val msg = "2.6G异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.d("2.6G异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex,$filterOtherEnable")
+                    } else if (abnormalFre > 2397 && abnormalFre < 2488) {
+                        if (!filterWifiEnable) {
+                            val msg = "wifi2.4G信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.d("wifi信号：$frequency,$maxValue,$perValue,$maxIndex,${abnormalFre} mhz，$filterWifiEnable")
+                    } else if (abnormalFre < 800) {
+                        if (!filterInterPhoneEnable) {
+                            val msg = "疑似对讲机异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("疑似对讲机异常信号：${frequency / 1000 / 1000},$maxValue,$perValue,$maxIndex,${abnormalFre} mhz")
+                    } else {
+                        if (!filterDisorderEnable) {
+                            val msg = "其他异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
+                        Logger.i("其他异常信号：${frequency / 1000 / 1000},$maxValue,$perValue,$maxIndex,${abnormalFre} mhz")
+                    }
+                } else {
+                    //  Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
                 }
             }
         }
@@ -266,6 +460,11 @@ class AnalyzerProcessingLoop(
             preFrequency = START_FREQUENCY
             mIQSourceInterface?.frequency = START_FREQUENCY
         }
+
+    }
+
+    private var maxFre: MaxFrequency? = null
+    private fun compareMaxFrequency(maxFrequency: MaxFrequency) {
 
     }
 

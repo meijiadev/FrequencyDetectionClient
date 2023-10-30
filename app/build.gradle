@@ -57,4 +57,7 @@ dependencies {
     // Shape 框架：https://github.com/getActivity/ShapeView
     implementation 'com.github.getActivity:ShapeView:6.0'
 
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")// 协程核心库
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1")// 协程android支持库
+
 }
