@@ -1,6 +1,7 @@
 package com.example.frequencydetectionclient
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -28,6 +29,7 @@ class MyApp : Application(), ViewModelStoreOwner {
         Logger.addLogAdapter(AndroidLogAdapter())
         Log.i("MyApp", "启动初始化")
         initViewModel()
+        appContext = this
     }
 
     private fun initViewModel() {
@@ -47,5 +49,6 @@ class MyApp : Application(), ViewModelStoreOwner {
 
     companion object {
         lateinit var appViewModel: AppViewModel
+        lateinit var appContext: Context
     }
 }

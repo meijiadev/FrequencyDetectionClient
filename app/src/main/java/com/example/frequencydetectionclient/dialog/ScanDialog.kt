@@ -144,6 +144,8 @@ class ScanDialog(context: Context) : CenterPopupView(context) {
         }
 
 
+
+
     }
 
     private fun refreshLogView() {
