@@ -27,7 +27,12 @@ class AppViewModel : ViewModel() {
 
     // 过滤对讲机广播的信号
     var interPhoneFilterData = MutableLiveData<Boolean>()
+
     // 2.6G频段基站发出的信号
     var otherFilterData = MutableLiveData<Boolean>()
+    // 找到异常的信号
+    var alarmFrequencyData = MutableLiveData<Long>()
 
+    // 是否开启解调器
+    var demodulationEnableData=MutableLiveData<Boolean>()
 }

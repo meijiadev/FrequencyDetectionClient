@@ -2,6 +2,7 @@ package com.example.frequencydetectionclient.thread
 
 import android.os.Build
 import com.example.frequencydetectionclient.MainActivity.Companion.END_FREQUENCY
+import com.example.frequencydetectionclient.MainActivity.Companion.SAMPLE_RATE
 import com.example.frequencydetectionclient.MainActivity.Companion.START_FREQUENCY
 import com.example.frequencydetectionclient.MainActivity.Companion.collectQueue
 import com.example.frequencydetectionclient.MyApp
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.sqrt
@@ -230,9 +232,7 @@ class AnalyzerProcessingLoop(
 
                 WORK_STATUS_DEFAULT -> {
                     // 把结果推到表面上去:
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        view.draw(mag!!, frequency, sampleRate, frameRate, load)
-                    }
+                    view.draw(mag!!, frequency, sampleRate, frameRate, load)
                     // 计算该帧的剩余时间(根据帧速率)，并在该时间内休眠:
                     sleepTime = 1000 / frameRate - (System.currentTimeMillis() - startTime)
 //                    Logger.i("sleepTime:$sleepTime");
@@ -275,7 +275,7 @@ class AnalyzerProcessingLoop(
     private var endTime: Long = 0
 
     //每hz应该分配到的采样数
-    private var perHzData = 4096 / (20 * 1000 * 1000f)
+    private var perHzData = 4096f / SAMPLE_RATE
     private var collectCount = 0
 
     private var avMags = mutableListOf<MutableMap<Long, FloatArray>>()
@@ -299,7 +299,7 @@ class AnalyzerProcessingLoop(
             startTime = System.currentTimeMillis()
             Logger.i("扫描起点：$START_FREQUENCY,$collectCount")
         }
-        val newFre = frequency + rate / 2
+        val newFre = frequency + rate
         if (newFre <= END_FREQUENCY) {
             if (newFre != preFrequency) {
                 preFrequency = newFre
@@ -312,9 +312,8 @@ class AnalyzerProcessingLoop(
             Logger.i("跑完3Ghz总耗时:${endTime - startTime}")
             preFrequency = START_FREQUENCY
             mIQSourceInterface?.frequency = START_FREQUENCY
-            MyApp.appViewModel.collectingProcessData.postValue(collectCount * 5)
-            if (collectCount == 20) {
-
+            MyApp.appViewModel.collectingProcessData.postValue(collectCount * 10)
+            if (collectCount == 10) {
                 for ((k, v) in collectQueue) {
                     var avMag = FloatArray(fftSize)
                     var frequency = k
@@ -341,11 +340,11 @@ class AnalyzerProcessingLoop(
         }
     }
 
-    // 报警的
-    private var interPhoneFre: Long = 0
 
     private var scanMode: Int = 0
 
+    // 该频率 采集的数据次数
+    private var perCount: Int = 0
 
     /**
      * 全频段扫描 30-3000MHz
@@ -369,7 +368,7 @@ class AnalyzerProcessingLoop(
                 val perValue = mag[maxIndex]
                 if (perValue < -999) {
                     Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
-                } else if (perValue + 8 < maxValue) {
+                } else if (perValue + 10 < maxValue) {
                     val fre = maxIndex / perHzData
                     val abnormalFre = (frequency - rate / 2 + fre) / 1000 / 1000
 
@@ -455,15 +454,17 @@ class AnalyzerProcessingLoop(
                             val msg =
                                 "疑似对讲机异常信号：$abnormalFre Mhz,$maxValue,$perValue，$frequency"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
-                            scanMode = 1
                         }
-                        Logger.i("疑似对讲机异常信号：${frequency / 1000 / 1000},$maxValue,$perValue,$maxIndex,${abnormalFre} mhz")
+                        Logger.i("疑似对讲机异常信号：${abnormalFre} mhz,$maxValue,$perValue,$maxIndex,${frequency / 1000 / 1000}")
+                        scanMode = 1
+                        mIQSourceInterface?.frequency = START_FREQUENCY
+                        return
                     } else {
                         if (!filterDisorderEnable) {
                             val msg = "其他异常信号：$abnormalFre Mhz,$maxValue,$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
-                        Logger.i("其他异常信号：${frequency / 1000 / 1000},$maxValue,$perValue,$maxIndex,${abnormalFre} mhz")
+                        Logger.d("其他异常信号：${frequency / 1000 / 1000},$maxValue,$perValue,$maxIndex,${abnormalFre} mhz")
                     }
                 } else {
                     //  Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
@@ -502,6 +503,12 @@ class AnalyzerProcessingLoop(
     // 从40-700中间没有一个报警的值
     private var hasAlarm = false
 
+    // 具体的报警频段
+    private var alarmFre: Float = 0f
+
+    // 具体的报警频段，之前采集的信号强度值，后面要通过比较这个来判断是否还处于报警状态
+    private var alarmDb: Float = 0f
+
 
     /**
      * 扫描低频 30-700MHz
@@ -520,16 +527,15 @@ class AnalyzerProcessingLoop(
         if (scanStatus == ScanDialog.SCAN_STATUS_PAUSE) {
             return
         }
-
         if (perMag != null) {
             if (maxIndex < perMag.size - 1) {
                 val perValue = perMag[maxIndex]
                 if (perValue < -999) {
                     Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
-                } else if (perValue + 5 < maxValue) {
+                } else if (perValue + 8 < maxValue) {
                     val fre = maxIndex / perHzData
-                    val abnormalFre = (frequency - rate / 2 + fre) / 1000 / 1000
-                    if (abnormalFre < 700) {
+                    val abnormalFre = (frequency - rate / 2 + fre)
+                    if (abnormalFre < 700 * 1000 * 1000) {
                         // 重置计数器
                         notAlarmCount = 0
                         val list: MutableList<Float>
@@ -545,9 +551,9 @@ class AnalyzerProcessingLoop(
                         abnormalMap[abnormalFre] = list
                         hasAlarm = true
                         val msg =
-                            "疑似对讲机异常信号：$abnormalFre Mhz,$maxValue,$perValue，$frequency"
+                            "对讲机：${abnormalFre / 1000 / 1000} Mhz,$maxValue,$perValue，$frequency"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
-                        Logger.i("对讲机：$abnormalFre,$maxValue,$perValue")
+                        Logger.i("对讲机：${abnormalFre / 1000 / 1000},$maxValue,$perValue")
                     }
                 }
             }
@@ -560,15 +566,14 @@ class AnalyzerProcessingLoop(
             }
         } else {
             endTime = System.currentTimeMillis()
-            if (alarmCount > 8
-            ) {
+            if (alarmCount > 6) {
                 findMaxForMap()
-                abnormalMap.clear()
-                alarmCount = 0
+                // 后面不再执行
+                //return
             }
             if (!hasAlarm) {
                 notAlarmCount++
-                if (notAlarmCount > 2) {
+                if (notAlarmCount > 4) {
                     scanMode = 0
                     // 重置计数器
                     alarmCount = 0
@@ -584,35 +589,43 @@ class AnalyzerProcessingLoop(
             preFrequency = START_FREQUENCY
             mIQSourceInterface?.frequency = START_FREQUENCY
         }
-        val curMag = FloatArray(fftSize)
-        for (i in mag.indices) {
-            if (mag[i] < -999) {
-                curMag[i] = -20f
-            } else {
-                curMag[i] = mag[i]
-            }
-        }
-        val jsonObject = FrequencyData(curMag, frequency, rate)
-        val jsonString = Gson().toJson(jsonObject)
-        MainScope().launch {
-            withContext(Dispatchers.IO) {
-             //   saveFrequencyToFile(jsonString)
-            }
-        }
+//        val curMag = FloatArray(fftSize)
+//        for (i in mag.indices) {
+//            if (mag[i] < -999) {
+//                curMag[i] = -20f
+//            } else {
+//                curMag[i] = mag[i]
+//            }
+//        }
+//        val jsonObject = FrequencyData(curMag, frequency, rate)
+//        val jsonString = Gson().toJson(jsonObject) + "\n"
+//        MainScope().launch {
+//            withContext(Dispatchers.IO) {
+//                if (writeCount < 30) {
+//                    saveFrequencyToFile(jsonString)
+//                }
+//            }
+//        }
     }
 
-//    private suspend fun saveFrequencyToFile(json: String) = withContext(Dispatchers.IO) {
-////        val path = FileUtil.getAlarmCacheDir() + "/data.txt"
-//        val logDir = FileUtil.getLogCacheDir()
-//        val logFilePath = "$logDir/Data1.txt"
-////        if (!file.exists()) {
-////            file.mkdirs()
-////        }
-//        // 判断是否存在 ，不存在则创建
-//        FileUtil.createOrExistsFile(logFilePath)
-//        IOUtil.writeFileFromString(logFilePath, json, true)
-//        Logger.i("保存的路径：$logFilePath")
-//    }
+    private var writeCount = 0
+
+    /**
+     * 保存频率到文件中
+     */
+    private suspend fun saveFrequencyToFile(json: String) = withContext(Dispatchers.IO) {
+//        val path = FileUtil.getAlarmCacheDir() + "/data.txt"
+        val logDir = FileUtil.getLogCacheDir()
+        val logFilePath = "$logDir/Data1.txt"
+//        if (!file.exists()) {
+//            file.mkdirs()
+//        }
+        // 判断是否存在 ，不存在则创建
+        FileUtil.createOrExistsFile(logFilePath)
+        IOUtil.writeFileFromString(logFilePath, json, true)
+        Logger.i("保存的路径：$logFilePath")
+        writeCount++
+    }
 
     /**
      * 从abnormalMap中找出 最关键的频率
@@ -632,28 +645,73 @@ class AnalyzerProcessingLoop(
                 -99f
             }
             map[k] = avg
-            Logger.i("k:$k;v:$avg")
+            Logger.i("k:${k / 1000 / 1000};v:$avg")
         }
         val maxEntries = map.values.maxOrNull()?.let { maxValue ->
             map.filterValues { it == maxValue }
         } ?: emptyMap()
 
         val fre = maxEntries.keys.maxOrNull()
-        Logger.e("真正的频率是：$fre,${maxEntries.size}")
+        fre?.let {
+            var fre: Float
+            var db: Float
+            val max = map[it]
+            val left = map[it - SAMPLE_RATE]
+            val leftL = map[it - SAMPLE_RATE - SAMPLE_RATE]
+            val right = map[it + SAMPLE_RATE]
+            if (max != null) {
+                // 排除其他波形的影响
+                if (left != null && (leftL != null && leftL > -20) && (abs(max - left) < 2) && (right == null || (abs(
+                        max - right
+                    ) > 1))
+                ) {
+                    fre = it - SAMPLE_RATE
+                    db = left
+                } else if (left != null && right != null && right > -20 && left > -20) {
+                    fre = it
+                    db = max
+                } else {
+                    fre = it
+                    db = max
+                }
+                alarmFre = fre
+                alarmDb = db
+                //scanMode = 2
+                Logger.e("真正的频率是：${alarmFre / 1000 / 1000},$max;$left;$leftL;$right")
+            }
+        }
+        abnormalMap.clear()
+        alarmCount = 0
+        mIQSourceInterface?.frequency = alarmFre.toLong()
+        //MyApp.appViewModel.demodulationEnableData.postValue(true)
     }
 
     /**
      * 把频率固定住，该频率应该是侦测到的异常频段
      */
     private fun fixedFrequency(mag: FloatArray, frequency: Long, rate: Int) {
+        //val count = perHzData * 10 * 1000  // 10khz
+        val centerIndex = fftSize / 2
+        val centerDb = mag[centerIndex]
+        Logger.d("cur frequency:${frequency / 1000 / 1000};$centerDb;$alarmDb")
 
-    }
-
-    /**
-     * 扫描高频
-     */
-    private fun scanHighFrequency() {
-
+//        val curMag = FloatArray(fftSize)
+//        for (i in mag.indices) {
+//            if (mag[i] < -999) {
+//                curMag[i] = -20f
+//            } else {
+//                curMag[i] = mag[i]
+//            }
+//        }
+//        val jsonObject = FrequencyData(curMag, frequency, rate)
+//        val jsonString = Gson().toJson(jsonObject) + "\n"
+//        MainScope().launch {
+//            withContext(Dispatchers.IO) {
+//                if (writeCount < 30) {
+//                    //  saveFrequencyToFile(jsonString)
+//                }
+//            }
+//        }
     }
 
 

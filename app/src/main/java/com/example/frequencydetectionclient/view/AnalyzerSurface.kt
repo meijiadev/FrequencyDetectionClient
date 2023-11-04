@@ -30,7 +30,11 @@ import org.w3c.dom.Attr
  * Module:      AnalyzerSurface.java
  * Description: 这是一个扩展SurfaceView的自定义视图。它将显示频谱和瀑布图表
  */
-class AnalyzerSurface @JvmOverloads constructor(context: Context?, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
+class AnalyzerSurface @JvmOverloads constructor(
+    context: Context?,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) :
     SurfaceView(context, attrs, defStyleAttr), SurfaceHolder.Callback, OnScaleGestureListener,
     GestureDetector.OnGestureListener {
     // 手势检测器检测缩放、滚动。。。
@@ -60,8 +64,7 @@ class AnalyzerSurface @JvmOverloads constructor(context: Context?, attrs: Attrib
 
     // idx 0 -> weak signal   idx max -> strong signal
     private var waterfallLines: Array<Bitmap?>? = null            // 每个数组元素在瀑布图中保存一行
-    private var waterfallLinesTopIndex =
-        0                       // 指示waterfallLines中的哪个数组索引是最近的(圆形数组)
+    private var waterfallLinesTopIndex = 0                // 指示waterfallLines中的哪个数组索引是最近的(圆形数组)
     private var waterfallColorMapType = COLORMAP_GQRX
     private var fftDrawingType = FFT_DRAWING_TYPE_LINE         // 指示应如何绘制fft
     private var averageLength = 0                             // 指示是否应绘制峰值保持点
@@ -1184,15 +1187,14 @@ class AnalyzerSurface @JvmOverloads constructor(context: Context?, attrs: Attrib
                 }
             }
             // Waterfall:
-            if (waterfallAvg <= minDB)
+            if (waterfallAvg <= minDB) {
                 waterfallLinePaint.color = waterfallColorMap[0]
-            else if
-                         (waterfallAvg >= maxDB) waterfallLinePaint.color =
-                waterfallColorMap[waterfallColorMap.size - 1]
-            else
+            } else if (waterfallAvg >= maxDB) {
+                waterfallLinePaint.color = waterfallColorMap[waterfallColorMap.size - 1]
+            } else {
                 waterfallLinePaint.color =
                     waterfallColorMap[((waterfallAvg - minDB) * scale).toInt()]
-
+            }
             // getPixelPerWaterfallLine :默认1
             if (pixelPerWaterfallLine > 1)
                 newline?.drawLine(
@@ -1201,7 +1203,10 @@ class AnalyzerSurface @JvmOverloads constructor(context: Context?, attrs: Attrib
                     i.toFloat(),
                     pixelPerWaterfallLine.toFloat(),
                     waterfallLinePaint
-                ) else newline?.drawPoint(i.toFloat(), 0f, waterfallLinePaint)
+                )
+            else {
+                newline?.drawPoint(i.toFloat(), 0f, waterfallLinePaint)
+            }
         }
     }
 

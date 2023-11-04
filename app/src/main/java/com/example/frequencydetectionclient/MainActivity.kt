@@ -19,9 +19,13 @@ import com.example.frequencydetectionclient.view.AnalyzerSurface
 import com.lxj.xpopup.XPopup
 import com.lxj.xpopup.enums.PopupAnimation
 import com.orhanobut.logger.Logger
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 
@@ -149,12 +153,12 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         }
 
         viewBinding.tvDetection.setOnClickListener {
+            source?.let {
+                it.frequency = START_FREQUENCY           // 设置频率
+                it.sampleRate = SAMPLE_RATE             // 设置采样率
+            }
             if (collectQueue.isNotEmpty()) {
                 workStatus = AnalyzerProcessingLoop.WORK_STATUS_SCAN
-                source?.let {
-                    it?.frequency = START_FREQUENCY           // 设置频率
-                    it?.sampleRate = SAMPLE_RATE             // 设置采样率
-                }
                 analyzerProcessingLoop?.setWorkStatus(workStatus)
                 Logger.i("进入侦测页面")
                 if (!running) {
@@ -180,6 +184,21 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
      * 初始化监听事件
      */
     private fun initObserver() {
+        MyApp.appViewModel.demodulationEnableData.observe(this) {
+            it?.let {
+                if (it) {
+                    if (demodulationMode != Demodulator.DEMODULATION_NFM) {
+                        demodulationMode = Demodulator.DEMODULATION_NFM
+                        setDemodulationMode(demodulationMode)
+                    }
+                } else {
+                    if (demodulationMode != Demodulator.DEMODULATION_OFF) {
+                        demodulationMode = Demodulator.DEMODULATION_OFF
+                        setDemodulationMode(demodulationMode)
+                    }
+                }
+            }
+        }
         MyApp.appViewModel.scanStatusData.observe(this) {
             when (it) {
                 ScanDialog.SCAN_STATUS_PAUSE -> {
@@ -292,6 +311,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
      * 停止射频分析，包括关闭调度器，处理循环和解调器
      */
     private fun stopAnalyzer() {
+        Logger.i("stopAnalyzer")
         // stop the scheduler if running:
         if (scheduler != null) {
             // stop recording in case it is running:
@@ -342,6 +362,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
 
     private fun startAnalyzer() {
         stopAnalyzer() //运行时停止，这确保我们不会以多个线程循环
+        Logger.i("启动频率分析器")
         //
         val fftSize = SpManager.getInt(SP_FFT_SIZE_KEY, 4096)
         val frameRate = SpManager.getInt(SP_FRAME_RATE_KEY, 10)
@@ -539,13 +560,16 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
 
     override fun onIQSourceError(source: IQSourceInterface?, message: String?) {
         Logger.e("Error with Source:$message")
+        MainScope().launch {
+            withContext(Dispatchers.Main){
+                delay(3000)
+                startAnalyzer()
+                Logger.i("重新启动")
+            }
+        }
         stopAnalyzer()
         if (source != null && source.isOpen) {
             source.close()
-        }
-        GlobalScope.launch {
-            delay(3000)
-            startAnalyzer()
         }
     }
 
