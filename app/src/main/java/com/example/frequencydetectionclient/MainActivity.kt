@@ -290,7 +290,6 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         // inform the analyzer surface about the new source
         analyzerSurface?.setSource(source)
         return true
-
     }
 
     /**

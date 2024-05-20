@@ -16,13 +16,9 @@ import com.example.frequencydetectionclient.utils.FFT
 import com.example.frequencydetectionclient.utils.FileUtil
 import com.example.frequencydetectionclient.utils.IOUtil
 import com.example.frequencydetectionclient.view.AnalyzerSurface
-import com.google.gson.Gson
 import com.orhanobut.logger.Logger
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -368,91 +364,91 @@ class AnalyzerProcessingLoop(
                 val perValue = mag[maxIndex]
                 if (perValue < -999) {
                     Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
-                } else if (perValue + 10 < maxValue) {
+                } else if (perValue + 12 < maxValue) {
                     val fre = maxIndex / perHzData
                     val abnormalFre = (frequency - rate / 2 + fre) / 1000 / 1000
 
                     if (abnormalFre > 700 && abnormalFre < 735) {
                         // 700mhz 上行 703-733mhz 758-788 下行
-                        val msg = "700段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "700段上行异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         Logger.i("700段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                     } else if (abnormalFre > 758 && abnormalFre < 788) {
                         if (!filterStationEnable) {
-                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "基站下行信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 823 && abnormalFre < 838) {
                         // 850mhz 上行 825-835mhz  870-880mhz
-                        val msg = "850段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "850段上行异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                         Logger.i("850段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 870 && abnormalFre < 880) {
                         if (!filterStationEnable) {
-                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "基站下行信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 885 && abnormalFre < 916) {
                         // 889_904_915 mhz 移动_联通 上行
-                        val msg = "900段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "900段上行异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                         Logger.i("900段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 934 && abnormalFre < 960) {
                         if (!filterStationEnable) {
-                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "基站下行信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 1707 && abnormalFre < 1788) {
                         // 1710_1735_1765_1785  移动_联通_电信
-                        val msg = "1800段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "1800段上行异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                         Logger.i("1800段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 1805 && abnormalFre < 1880) {
                         if (!filterStationEnable) {
-                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "基站下行信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 2010 && abnormalFre < 2025) {
-                        val msg = "2000段上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "2000段上行异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                         Logger.i("2000段上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 1880 && abnormalFre < 1965) {
                         // 1880_1920_1940_1965 上行信号
-                        val msg = "1.9G上行异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "1.9G上行异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                         Logger.i("1.9G上行异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 2110 && abnormalFre < 2155) {
                         if (!filterStationEnable) {
-                            val msg = "基站下行信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "基站下行信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.i("基站下行信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 2297 && abnormalFre < 2367) {
                         // 2300_2320_2370
-                        val msg = "2.3G异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                        val msg = "2.3G异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                         MyApp.appViewModel.scanMsgData.postValue(msg)
                         Logger.i("2.3G异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex")
                     } else if (abnormalFre > 2512 && abnormalFre < 2678) {
                         if (!filterOtherEnable) {
                             // 2515_2675
-                            val msg = "2.6G异常信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "2.6G异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.d("2.6G异常信号：$abnormalFre,$maxValue,$perValue,$maxIndex,$filterOtherEnable")
                     } else if (abnormalFre > 2397 && abnormalFre < 2488) {
                         if (!filterWifiEnable) {
-                            val msg = "wifi2.4G信号：$abnormalFre Mhz,$maxValue,$perValue"
+                            val msg = "wifi2.4G信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.d("wifi信号：$frequency,$maxValue,$perValue,$maxIndex,${abnormalFre} mhz，$filterWifiEnable")
                     } else if (abnormalFre < 700) {
                         if (!filterInterPhoneEnable) {
                             val msg =
-                                "疑似对讲机异常信号：$abnormalFre Mhz,$maxValue,$perValue，$frequency"
+                                "疑似对讲机异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
                         Logger.i("疑似对讲机异常信号：${abnormalFre} mhz,$maxValue,$perValue,$maxIndex,${frequency / 1000 / 1000}")
@@ -532,7 +528,7 @@ class AnalyzerProcessingLoop(
                 val perValue = perMag[maxIndex]
                 if (perValue < -999) {
                     Logger.d("perMaxValue:$perValue,maxIndex:$maxIndex,frequency:$frequency")
-                } else if (perValue + 8 < maxValue) {
+                } else if (perValue + 12 < maxValue) {
                     val fre = maxIndex / perHzData
                     val abnormalFre = (frequency - rate / 2 + fre)
                     if (abnormalFre < 700 * 1000 * 1000) {
@@ -550,9 +546,13 @@ class AnalyzerProcessingLoop(
                         }
                         abnormalMap[abnormalFre] = list
                         hasAlarm = true
+//                        val msg =
+//                            "对讲机：${abnormalFre / 1000 / 1000} Mhz,最大信号值：$maxValue,采集平均信号值$perValue，$frequency"
                         val msg =
-                            "对讲机：${abnormalFre / 1000 / 1000} Mhz,$maxValue,$perValue，$frequency"
-                        MyApp.appViewModel.scanMsgData.postValue(msg)
+                            "对讲机异常频段：${abnormalFre / 1000 / 1000} Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
+                        if (!filterInterPhoneEnable){
+                            MyApp.appViewModel.scanMsgData.postValue(msg)
+                        }
                         Logger.i("对讲机：${abnormalFre / 1000 / 1000},$maxValue,$perValue")
                     }
                 }
@@ -677,7 +677,9 @@ class AnalyzerProcessingLoop(
                 alarmFre = fre
                 alarmDb = db
                 //scanMode = 2
+                val msg="真正异常频率是：${alarmFre / 1000 / 1000}"
                 Logger.e("真正的频率是：${alarmFre / 1000 / 1000},$max;$left;$leftL;$right")
+                MyApp.appViewModel.scanMsgData.postValue(msg)
             }
         }
         abnormalMap.clear()
