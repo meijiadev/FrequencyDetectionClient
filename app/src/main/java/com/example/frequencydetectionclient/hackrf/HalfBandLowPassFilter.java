@@ -5,7 +5,7 @@ import com.orhanobut.logger.Logger;
 
 /**
  * Module:      HalfBandLowPassFilter.java
- * Description:此类实现了一个半带低通滤波器，该滤波器抽取2。为了获得性能，这是一个非常具体和不灵活的执行。它用于对高速率信号进行下采样。注意：此滤波器将信号放大2倍！
+ * Description: 此类实现了一个半带低通滤波器，该滤波器抽取2。为了获得性能，这是一个非常具体和不灵活的执行。它用于对高速率信号进行下采样。注意：此滤波器将信号放大2倍！
  */
 public class HalfBandLowPassFilter {
 

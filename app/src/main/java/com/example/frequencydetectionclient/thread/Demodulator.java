@@ -63,29 +63,27 @@ public class Demodulator extends Thread {
     private AudioSink audioSink = null;        // Will do QUADRATURE_RATE --> AUDIO_RATE and audio output
 
     /**
-     * Constructor. Creates a new demodulator block reading its samples from the given input queue and
-     * returning the buffers to the given output queue. Expects input samples to be at baseband (mixing
-     * is done by the scheduler)
+     * 构造函数，初始化解调器
      *
-     * @param inputQueue  Queue that delivers received baseband signals
-     * @param outputQueue Queue to return used buffers from the inputQueue
-     * @param packetSize  Size of the packets in the input queue
+     * @param inputQueue 输入队列，用于接收输入的样本包
+     * @param outputQueue 输出队列，用于发送处理后的样本包
+     * @param packetSize 样本包的大小
      */
     public Demodulator(ArrayBlockingQueue<SamplePacket> inputQueue, ArrayBlockingQueue<SamplePacket> outputQueue, int packetSize) {
-        // Create internal sample buffers:
-        // Note that we create the buffers for the case that there is no downsampling necessary
-        // All other cases with input decimation > 1 are also possible because they only need
-        // smaller buffers.
+        // 创建内部样本缓冲区：
+        // 请注意，我们为不需要降采样的情况创建了缓冲区
+        // 所有其他需要输入降采样的情况也都是可能的，因为它们只需要更小的缓冲区。
         this.quadratureSamples = new SamplePacket(packetSize);
 
-        // Create Audio Sink
+        // 创建音频接收器
+        // 该接收器用于处理和播放音频流
         this.audioSink = new AudioSink(packetSize, AUDIO_RATE);
 
-        // Create Decimator block
-        // Note that the decimator directly reads from the inputQueue and also returns processed packets to the
-        // output queue.
+        // 创建降采样器模块
+        // 请注意，降采样器直接从输入队列读取数据，并将处理后的数据包返回到输出队列。
         this.decimator = new Decimator(QUADRATURE_RATE[demodulationMode], packetSize, inputQueue, outputQueue);
     }
+
 
     /**
      * @return Demodulation Mode (DEMODULATION_OFF, *_AM, *_NFM, *_WFM, ...)

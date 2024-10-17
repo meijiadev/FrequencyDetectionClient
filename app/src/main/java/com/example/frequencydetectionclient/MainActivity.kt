@@ -175,7 +175,6 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
             } else {
                 Toast.makeText(this, "请先进行信号采集", Toast.LENGTH_SHORT).show()
             }
-
         }
 
     }
@@ -187,8 +186,8 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
         MyApp.appViewModel.demodulationEnableData.observe(this) {
             it?.let {
                 if (it) {
-                    if (demodulationMode != Demodulator.DEMODULATION_NFM) {
-                        demodulationMode = Demodulator.DEMODULATION_NFM
+                    if (demodulationMode != Demodulator.DEMODULATION_AM) {
+                        demodulationMode = Demodulator.DEMODULATION_AM
                         setDemodulationMode(demodulationMode)
                     }
                 } else {
@@ -560,7 +559,7 @@ class MainActivity : AppCompatActivity(), IQSourceInterface.Callback, RFControlI
     override fun onIQSourceError(source: IQSourceInterface?, message: String?) {
         Logger.e("Error with Source:$message")
         MainScope().launch {
-            withContext(Dispatchers.Main){
+            withContext(Dispatchers.Main) {
                 delay(3000)
                 startAnalyzer()
                 Logger.i("重新启动")

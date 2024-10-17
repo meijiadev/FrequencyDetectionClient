@@ -253,11 +253,9 @@ class AnalyzerProcessingLoop(
 //                        Logger.e("Error while calling sleep()")
 //                    }
                 }
-
                 else -> {
 
                 }
-
             }
         }
         stopRequested = true
@@ -451,6 +449,7 @@ class AnalyzerProcessingLoop(
                                 "疑似对讲机异常信号：$abnormalFre Mhz,最大信号值：$maxValue,采集平均信号值$perValue"
                             MyApp.appViewModel.scanMsgData.postValue(msg)
                         }
+                        MyApp.appViewModel.demodulationEnableData.postValue(true)
                         Logger.i("疑似对讲机异常信号：${abnormalFre} mhz,$maxValue,$perValue,$maxIndex,${frequency / 1000 / 1000}")
                         scanMode = 1
                         mIQSourceInterface?.frequency = START_FREQUENCY

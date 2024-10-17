@@ -35,7 +35,6 @@ android {
     }
     namespace 'com.example.frequencydetectionclient'
 }
-
 dependencies {
     implementation(fileTree('libs'))
     implementation 'androidx.core:core-ktx:1.6.0'
@@ -62,6 +61,4 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1'// 协程核心库
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1'// 协程android支持库
     implementation 'com.tonystark.android:socket:latest.release'
-
-
 }
